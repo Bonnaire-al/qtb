@@ -23,7 +23,7 @@ const Navbar = () => {
           loop 
           className="w-full h-full object-cover"
         >
-          <source src="/src/images/Design sans titre.mp4" type="video/mp4" />
+          <source src="/src/image/Design sans titre.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-900/80 to-cyan-800/80"></div>
       </div>
