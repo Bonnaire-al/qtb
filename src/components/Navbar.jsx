@@ -52,7 +52,7 @@ const Navbar = () => {
         <div className="relative flex items-center justify-between px-2 sm:px-4 py-3">
           {/* Mobile menu button - visible uniquement sur mobile */}
           <button
-            className="md:hidden text-white focus:outline-none cursor-pointer z-20 relative p-2 hover:bg-white/10 rounded-lg transition-colors duration-200"
+            className="md:hidden text-white focus:outline-none cursor-pointer z-20 relative p-2 hover:bg-white/10 rounded-lg"
             onClick={toggleMenu}
             aria-label="Menu"
           >
@@ -112,8 +112,8 @@ const Navbar = () => {
             </Link>
           </nav>
           
-          {/* Logo */}
-          <div className="flex-1 flex justify-center md:flex-none md:absolute md:left-1/2 md:transform md:-translate-x-1/2">
+          {/* Logo - centré parfaitement */}
+          <div className="absolute left-1/2 transform -translate-x-1/2">
             <Link to="/accueil" onClick={closeMenu}>
               <div 
                 className="text-xl sm:text-2xl md:text-3xl lg:text-3xl xl:text-4xl font-bold flex items-center"
