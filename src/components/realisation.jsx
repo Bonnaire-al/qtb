@@ -32,9 +32,9 @@ export default function Realisation() {
             <div className="bg-white rounded-lg overflow-hidden shadow-lg h-full">
               <div className="relative">
                 <img
-                  src="https://readdy.ai/api/search-image?query=Modern%20smart%20home%20electrical%20installation%20with%20blue%20lighting%2C%20high-end%20electrical%20panel%20with%20neat%20wiring%2C%20professional%20electrical%20work%20in%20luxury%20home%2C%20clean%20modern%20background%20with%20blue%20accent%20lighting&width=400&height=300&seq=3&orientation=landscape"
+                  src="/public/image/WhatsApp Image 2025-07-19 à 22.29.15_fa932f0d.jpg"
                   alt="Installation domotique"
-                  className="w-full h-64 object-cover object-top"
+                  className="w-full h-64 object-cover "
                 />
                 <div className="absolute top-4 right-4 bg-cyan-600 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
                   <i className="fas fa-bolt mr-1 animate-pulse"></i>
@@ -42,9 +42,9 @@ export default function Realisation() {
                 </div>
               </div>
               <div className="p-6">
-                <h3 className="text-xl font-bold text-cyan-800 mb-2">Installation Domotique</h3>
+                <h3 className="text-xl font-bold text-cyan-800 mb-2">Plafonier luminaire personnalisé </h3>
                 <p className="text-gray-600">
-                  Système complet de maison intelligente avec contrôle d'éclairage, chauffage et sécurité via smartphone.
+                Sortez des standards avec un plafonnier unique, conçu pour refléter votre style et sublimer chaque espace.e et sécurité via smartphone.
                 </p>
               </div>
             </div>
@@ -53,9 +53,9 @@ export default function Realisation() {
             <div className="bg-white rounded-lg overflow-hidden shadow-lg h-full">
               <div className="relative">
                 <img
-                  src="https://readdy.ai/api/search-image?query=Electric%20vehicle%20charging%20station%20installation%20at%20modern%20home%2C%20professional%20EV%20charger%20setup%20with%20blue%20lighting%20effects%2C%20clean%20installation%20of%20home%20charging%20point%2C%20modern%20garage%20with%20blue%20accent%20lighting&width=400&height=300&seq=4&orientation=landscape"
+                  src="/public/image/INTERUPTEUR TACTIL WIFI ET RF433 DOUBLE-11112020-domotique-maroc16050864491.jpg"
                   alt="Borne de recharge"
-                  className="w-full h-64 object-cover object-top"
+                  className="w-full h-64 object-cover"
                 />
                 <div className="absolute top-4 right-4 bg-cyan-600 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
                   <i className="fas fa-bolt mr-1 animate-pulse"></i>
@@ -63,9 +63,9 @@ export default function Realisation() {
                 </div>
               </div>
               <div className="p-6">
-                <h3 className="text-xl font-bold text-cyan-800 mb-2">Bornes de Recharge VE</h3>
+                <h3 className="text-xl font-bold text-cyan-800 mb-2">Interrupteur moderne et tactile</h3>
                 <p className="text-gray-600">
-                  Installation de bornes de recharge pour véhicules électriques en résidentiel et commercial.
+                Adoptez un interrupteur moderne et tactile, compatible Wi-Fi, pour une maison connectée et intuitive, au cœur de votre système domotique
                 </p>
               </div>
             </div>
@@ -74,9 +74,9 @@ export default function Realisation() {
             <div className="bg-white rounded-lg overflow-hidden shadow-lg h-full">
               <div className="relative">
                 <img
-                  src="https://readdy.ai/api/search-image?query=Solar%20panel%20installation%20on%20modern%20home%20roof%20with%20blue%20sky%2C%20professional%20electrical%20connection%20of%20photovoltaic%20system%2C%20clean%20energy%20solution%20with%20blue%20electrical%20components%2C%20high%20quality%20professional%20installation&width=400&height=300&seq=5&orientation=landscape"
+                  src="/public/image/tableau tri.jpg"
                   alt="Installation photovoltaïque"
-                  className="w-full h-64 object-cover object-top"
+                  className="w-full h-64 object-cover"
                 />
                 <div className="absolute top-4 right-4 bg-cyan-600 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
                   <i className="fas fa-bolt mr-1 animate-pulse"></i>
@@ -84,9 +84,9 @@ export default function Realisation() {
                 </div>
               </div>
               <div className="p-6">
-                <h3 className="text-xl font-bold text-cyan-800 mb-2">Installations Photovoltaïques</h3>
+                <h3 className="text-xl font-bold text-cyan-800 mb-2">Tableau triphasé</h3>
                 <p className="text-gray-600">
-                  Solutions d'énergie solaire complètes avec stockage de batterie et intégration au réseau.
+                Installation et remplacement d'un tableau triphasé, conçu pour garantir une distribution électrique sûre et efficace.
                 </p>
               </div>
             </div>
@@ -95,7 +95,7 @@ export default function Realisation() {
             <div className="bg-white rounded-lg overflow-hidden shadow-lg h-full">
               <div className="relative">
                 <img
-                  src="https://readdy.ai/api/search-image?query=Before%20and%20after%20comparison%20of%20electrical%20panel%20upgrade%2C%20professional%20rewiring%20with%20blue%20lighting%20effects%2C%20modern%20electrical%20installation%20replacing%20old%20dangerous%20wiring%2C%20clean%20professional%20electrical%20work&width=400&height=300&seq=6&orientation=landscape"
+                  src="/public/image/portail.jpeg"
                   alt="Rénovation électrique"
                   className="w-full h-64 object-cover object-top"
                 />
@@ -105,9 +105,9 @@ export default function Realisation() {
                 </div>
               </div>
               <div className="p-6">
-                <h3 className="text-xl font-bold text-cyan-800 mb-2">Rénovation Électrique</h3>
+                <h3 className="text-xl font-bold text-cyan-800 mb-2">Portail électrique</h3>
                 <p className="text-gray-600">
-                  Mise aux normes complète d'un bâtiment ancien avec tableau électrique moderne et câblage sécurisé.
+                Profitez d’un portail électrique alliant sécurité et confort, pour un accès automatisé et pratique à votre propriété.
                 </p>
               </div>
             </div>

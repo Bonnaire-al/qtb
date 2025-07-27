@@ -3,20 +3,13 @@ import { Link } from "react-router-dom";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isServicesOpen, setIsServicesOpen] = useState(false);
   
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
-    if (isServicesOpen) setIsServicesOpen(false);
-  };
-  
-  const toggleServices = () => {
-    setIsServicesOpen(!isServicesOpen);
   };
 
   const closeMenu = () => {
     setIsMenuOpen(false);
-    setIsServicesOpen(false);
   };
 
   // Fermer le menu quand on clique en dehors
@@ -67,45 +60,28 @@ const Navbar = () => {
           <nav className="hidden md:flex space-x-4 lg:space-x-6 xl:space-x-8 2xl:space-x-12">
             <Link
               to="/accueil"
-              className="font-medium hover:text-cyan-200 transition-colors duration-300 group relative cursor-pointer text-sm lg:text-base xl:text-lg 2xl:text-xl"
+              className="font-medium hover:text-cyan-200 transition-colors duration-300 group relative cursor-pointer text-xs md:text-xs lg:text-base xl:text-lg 2xl:text-xl hover:scale-105"
             >
               Accueil
               <span className="absolute inset-x-0 bottom-0 h-0.5 bg-cyan-200 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></span>
             </Link>
             <Link
               to="/about"
-              className="font-medium hover:text-cyan-200 transition-colors duration-300 group relative cursor-pointer text-sm lg:text-base xl:text-lg 2xl:text-xl"
+              className="font-medium hover:text-cyan-200 transition-colors duration-300 group relative cursor-pointer text-xs md:text-xs lg:text-base xl:text-lg 2xl:text-xl hover:scale-105"
             >
               À propos
               <span className="absolute inset-x-0 bottom-0 h-0.5 bg-cyan-200 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></span>
             </Link>
-            <div className="relative group cursor-pointer">
-              <button
-                className="font-medium hover:text-cyan-200 transition-colors duration-300 flex items-center text-sm lg:text-base xl:text-lg 2xl:text-xl"
-                onClick={toggleServices}
-              >
-                Services <i className="fas fa-chevron-down ml-1 text-xs lg:text-sm"></i>
-              </button>
-              <div
-                className={`absolute left-0 mt-2 w-40 lg:w-48 xl:w-56 bg-white rounded-md shadow-lg py-1 text-gray-800 z-50 ${isServicesOpen ? "block" : "hidden"}`}
-              >
-                <Link
-                  to="/service"
-                  className="block px-3 lg:px-4 xl:px-5 py-2 hover:bg-cyan-100 transition-colors duration-200 text-sm lg:text-base"
-                >
-                  Nos Services
-                </Link>
-                <Link
-                  to="/realisations"
-                  className="block px-3 lg:px-4 xl:px-5 py-2 hover:bg-cyan-100 transition-colors duration-200 text-sm lg:text-base"
-                >
-                  Réalisations
-                </Link>
-              </div>
-            </div>
+            <Link
+              to="/service"
+              className="font-medium hover:text-cyan-200 transition-colors duration-300 group relative cursor-pointer text-xs md:text-xs lg:text-base xl:text-lg 2xl:text-xl hover:scale-105"
+            >
+              Services
+              <span className="absolute inset-x-0 bottom-0 h-0.5 bg-cyan-200 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></span>
+            </Link>
             <Link
               to="/quote"
-              className="font-medium hover:text-cyan-200 transition-colors duration-300 group relative cursor-pointer text-sm lg:text-base xl:text-lg 2xl:text-xl"
+              className="font-medium hover:text-cyan-200 transition-colors duration-300 group relative cursor-pointer text-xs md:text-xs lg:text-base xl:text-lg 2xl:text-xl hover:scale-105"
             >
               Devis
               <span className="absolute inset-x-0 bottom-0 h-0.5 bg-cyan-200 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></span>
@@ -116,7 +92,7 @@ const Navbar = () => {
           <div className="absolute left-1/2 transform -translate-x-1/2">
             <Link to="/accueil" onClick={closeMenu}>
               <div 
-                className="text-xl sm:text-2xl md:text-3xl lg:text-3xl xl:text-4xl font-bold flex items-center"
+                className="text-xl sm:text-2xl md:text-2xl lg:text-3xl xl:text-4xl font-bold flex items-center"
                 style={{
                   background: 'linear-gradient(45deg, #06b6d4, #ffffff, #06b6d4)',
                   backgroundSize: '400% 400%',
@@ -126,9 +102,8 @@ const Navbar = () => {
                   animation: 'gradientShift 10s ease-in-out infinite'
                 }}
               >
-                <i className="fas fa-bolt mr-1 sm:mr-2 md:mr-3 lg:mr-3 text-yellow-300" style={{ WebkitTextFillColor: 'initial' }}></i>
-                <span className="hidden sm:inline">QTB Electrotech</span>
-                <span className="sm:hidden">QTB</span>
+                <i className="fas fa-bolt mr-1 sm:mr-1 md:mr-1 lg:mr-3 text-yellow-300" style={{ WebkitTextFillColor: 'initial' }}></i>
+                <span>QTB Electrotech</span>
               </div>
             </Link>
           </div>
@@ -141,7 +116,7 @@ const Navbar = () => {
                 className="flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-3 lg:px-4 xl:px-6 py-2 lg:py-3 rounded-full transition-all duration-300 cursor-pointer font-semibold text-sm lg:text-base xl:text-lg"
               >
                 <i className="fas fa-bolt mr-1 lg:mr-2 xl:mr-3 group-hover:animate-pulse"></i>
-                <span>Urgence: 01 23 45 67 89</span>
+                <span>DEPANNAGE: 07 77 11 71 78</span>
               </a>
             </div>
           </div>
@@ -192,42 +167,14 @@ const Navbar = () => {
               <i className="fas fa-info-circle mr-3"></i>
               À propos
             </Link>
-            <div className="space-y-2">
-              <button
-                className="flex justify-between items-center w-full px-3 py-3 hover:bg-cyan-700/50 rounded-lg cursor-pointer transition-colors duration-200 text-white font-medium"
-                onClick={toggleServices}
-              >
-                <span>
-                  <i className="fas fa-cogs mr-3"></i>
-                  Services
-                </span>
-                <i
-                  className={`fas fa-chevron-${isServicesOpen ? "up" : "down"} text-xs transition-transform duration-200`}
-                ></i>
-              </button>
-              <div
-                className={`ml-6 space-y-2 overflow-hidden transition-all duration-300 ${
-                  isServicesOpen ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'
-                }`}
-              >
-                <Link
-                  to="/service"
-                  className="block px-3 py-2 hover:bg-cyan-700/50 rounded-lg cursor-pointer transition-colors duration-200 text-cyan-200"
-                  onClick={closeMenu}
-                >
-                  <i className="fas fa-tools mr-3"></i>
-                  Nos Services
-                </Link>
-                <Link
-                  to="/realisations"
-                  className="block px-3 py-2 hover:bg-cyan-700/50 rounded-lg cursor-pointer transition-colors duration-200 text-cyan-200"
-                  onClick={closeMenu}
-                >
-                  <i className="fas fa-project-diagram mr-3"></i>
-                  Réalisations
-                </Link>
-              </div>
-            </div>
+            <Link
+              to="/service"
+              className="block px-3 py-3 hover:bg-cyan-700/50 rounded-lg cursor-pointer transition-colors duration-200 text-white font-medium hover:scale-105"
+              onClick={closeMenu}
+            >
+              <i className="fas fa-cogs mr-3"></i>
+              Services
+            </Link>
             <Link
               to="/quote"
               className="block px-3 py-3 hover:bg-cyan-700/50 rounded-lg cursor-pointer transition-colors duration-200 text-white font-medium"

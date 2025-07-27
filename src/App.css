@@ -1,10 +1,9 @@
- .wel{
+ header{
   font-family: "Merienda", cursive;
   font-optical-sizing: auto;
-  font-weight: 700;
+  font-weight: 789;
   font-style: normal;
-}
-
+ }
 
 #root {
   width: 100%;
