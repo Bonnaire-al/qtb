@@ -43,7 +43,7 @@ const Footer = () => {
               </li>
               <li>
                 <a href="#" className="text-cyan-200 hover:text-white transition-colors duration-300">
-                  Bornes de recharge VE
+                  Systémes de sécurité
                 </a>
               </li>
               <li>
@@ -60,7 +60,7 @@ const Footer = () => {
             <div className="space-y-2">
               <p className="text-cyan-200 flex items-center">
                 <i className="fas fa-phone mr-2"></i>
-                01 23 45 67 89
+                07 77 11 71 78
               </p>
               <p className="text-cyan-200 flex items-center">
                 <i className="fas fa-envelope mr-2"></i>
@@ -68,7 +68,7 @@ const Footer = () => {
               </p>
               <p className="text-cyan-200 flex items-center">
                 <i className="fas fa-map-marker-alt mr-2"></i>
-                Paris, France
+                Nevers, France
               </p>
             </div>
           </div>

@@ -4,35 +4,55 @@ function Service() {
   const services = [
     {
       id: 1,
-      title: "Développement Web",
-      description: "Création de sites web modernes et responsives avec les dernières technologies.",
-      icon: "🌐",
-      price: "À partir de 1500€",
-      features: ["Design responsive", "Optimisation SEO", "Performance", "Maintenance"]
+      title: "Solutions électriques professionnelles",
+      description: "Installation, rénovation, mise aux normes et interventions sur tous types de chantiers pour garantir votre confort et votre sécurité.",
+      icon: "💡",
+      price: "Sur devis",
+      features: [
+        "Installation complète",
+        "Rénovation électrique",
+        "Mise aux normes",
+        "Sécurité et fiabilité"
+      ]
     },
     {
       id: 2,
-      title: "Applications React",
-      description: "Développement d'applications React performantes et scalables.",
-      icon: "⚛️",
-      price: "À partir de 2500€",
-      features: ["Interface moderne", "État global", "Routage", "API intégration"]
+      title: "Solutions domotiques",
+      description: "Contrôlez votre maison du bout des doigts : éclairage, chauffage, sécurité, équipements connectés et automatisation sur mesure.",
+      icon: "🏠",
+      price: "Sur devis",
+      features: [
+        "Gestion intelligente de l'éclairage",
+        "Contrôle du chauffage",
+        "Sécurité connectée",
+        "Automatisation personnalisée"
+      ]
     },
     {
       id: 3,
-      title: "E-commerce",
-      description: "Solutions e-commerce complètes pour votre business en ligne.",
-      icon: "🛒",
-      price: "À partir de 3500€",
-      features: ["Catalogue produits", "Paiement sécurisé", "Gestion stocks", "Analytics"]
+      title: "Dépannage & diagnostic gratuit",
+      description: "Votre sécurité, notre priorité : diagnostic et dépannage offerts pour tous vos besoins électriques et de sécurité.",
+      icon: "🛠️",
+      price: "Diagnostic offert",
+      features: [
+        "Diagnostic de sécurité gratuit",
+        "Dépannage rapide",
+        "Conseils personnalisés",
+        "Intervention sous 24h"
+      ]
     },
     {
       id: 4,
-      title: "Maintenance & Support",
-      description: "Services de maintenance continue et support technique.",
-      icon: "🔧",
-      price: "À partir de 200€/mois",
-      features: ["Mises à jour", "Sauvegarde", "Support 24/7", "Monitoring"]
+      title: "Systèmes de sécurité (alarmes, caméras, etc.)",
+      description: "Installation, diagnostic et dépannage de systèmes de sécurité : alarmes, caméras de surveillance, détecteurs de mouvement, interphones et plus encore pour protéger vos biens et vos proches.",
+      icon: "🔒",
+      price: "Sur devis",
+      features: [
+        "Alarmes anti-intrusion",
+        "Caméras de surveillance",
+        "Détecteurs de mouvement",
+        "Interphones et contrôle d'accès"
+      ]
     }
   ]
 
@@ -42,7 +62,7 @@ function Service() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-800 mb-4">Nos Services</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Découvrez notre gamme complète de services pour répondre à tous vos besoins numériques
+            Découvrez notre gamme complète de services pour répondre à tous vos besoins électriques et domotiques
           </p>
         </div>
 
@@ -63,14 +83,20 @@ function Service() {
                   </li>
                 ))}
               </ul>
-              <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
-                Demander un devis
-              </button>
+              {service.title === "Dépannage & diagnostic gratuit" ? (
+                <button className="w-full bg-yellow-400 hover:bg-yellow-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                  Contacter
+                </button>
+              ) : (
+                <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                  Demander un devis
+                </button>
+              )}
             </div>
           ))}
         </div>
 
-        <div className="mt-16 text-center">
+        <div className="mt-16 bg-white shadow-lg rounded-xl p-8 text-center">
           <h2 className="text-3xl font-bold text-gray-800 mb-6">Pourquoi nous choisir ?</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
@@ -80,7 +106,7 @@ function Service() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold text-gray-800 mb-2">Rapidité</h3>
-              <p className="text-gray-600">Livraison dans les délais convenus</p>
+              <p className="text-gray-600">Intervention sous 24h</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -89,7 +115,7 @@ function Service() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold text-gray-800 mb-2">Qualité</h3>
-              <p className="text-gray-600">Code propre et maintenable</p>
+              <p className="text-gray-600">Travail soigné et conforme</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-cyan-100 rounded-full flex items-center justify-center mx-auto mb-4">

@@ -32,7 +32,7 @@ export default function Realisation() {
             <div className="bg-white rounded-lg overflow-hidden shadow-lg h-full">
               <div className="relative">
                 <img
-                  src="/public/image/WhatsApp Image 2025-07-19 à 22.29.15_fa932f0d.jpg"
+                  src="/image/WhatsApp Image 2025-07-19 à 22.29.15_fa932f0d.jpg"
                   alt="Installation domotique"
                   className="w-full h-64 object-cover "
                 />
@@ -53,7 +53,7 @@ export default function Realisation() {
             <div className="bg-white rounded-lg overflow-hidden shadow-lg h-full">
               <div className="relative">
                 <img
-                  src="/public/image/INTERUPTEUR TACTIL WIFI ET RF433 DOUBLE-11112020-domotique-maroc16050864491.jpg"
+                  src="/image/INTERUPTEUR TACTIL WIFI ET RF433 DOUBLE-11112020-domotique-maroc16050864491.jpg"
                   alt="Borne de recharge"
                   className="w-full h-64 object-cover"
                 />
@@ -74,7 +74,7 @@ export default function Realisation() {
             <div className="bg-white rounded-lg overflow-hidden shadow-lg h-full">
               <div className="relative">
                 <img
-                  src="/public/image/tableau tri.jpg"
+                  src="/image/tableau tri.jpg"
                   alt="Installation photovoltaïque"
                   className="w-full h-64 object-cover"
                 />
@@ -95,7 +95,7 @@ export default function Realisation() {
             <div className="bg-white rounded-lg overflow-hidden shadow-lg h-full">
               <div className="relative">
                 <img
-                  src="/public/image/portail.jpeg"
+                  src="/image/portail.jpeg"
                   alt="Rénovation électrique"
                   className="w-full h-64 object-cover object-top"
                 />

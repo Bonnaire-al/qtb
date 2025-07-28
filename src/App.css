@@ -47,3 +47,25 @@
 .read-the-docs {
   color: #888;
 }
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideOutLeft {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(-100%); opacity: 0; }
+}
+@keyframes slideInCenter {
+  from { transform: translateX(0) scale(0.8); opacity: 0; }
+  to { transform: translateX(0) scale(1); opacity: 1; }
+}
+.animate-slide-in-right {
+  animation: slideInRight 0.4s cubic-bezier(0.4,0,0.2,1) both;
+}
+.animate-slide-out-left {
+  animation: slideOutLeft 0.4s cubic-bezier(0.4,0,0.2,1) both;
+}
+.animate-slide-in-center {
+  animation: slideInCenter 0.4s cubic-bezier(0.4,0,0.2,1) both;
+}

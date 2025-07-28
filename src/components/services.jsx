@@ -12,7 +12,7 @@ export default function Services() {
           <div className="bg-white rounded-lg shadow-lg overflow-hidden group">
             <div className="relative h-48 overflow-hidden">
               <img
-                src="/public/image/220_F_27938917_rPkH8zQbZybBhTI7RQ2QDpXDVVhKKDK2.jpg"
+                src="/image/220_F_27938917_rPkH8zQbZybBhTI7RQ2QDpXDVVhKKDK2.jpg"
                 alt="Installation électrique"
                 className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
               />
@@ -32,7 +32,7 @@ export default function Services() {
           <div className="bg-white rounded-lg shadow-lg overflow-hidden group">
             <div className="relative h-48 overflow-hidden">
               <img
-                src="/public/image/v355-sasi-59-smarthome_2.webp"
+                src="/image/v355-sasi-59-smarthome_2.webp"
                 className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-cyan-900/80 to-transparent"></div>
@@ -51,7 +51,7 @@ export default function Services() {
           <div className="bg-white rounded-lg shadow-lg overflow-hidden group">
             <div className="relative h-48 overflow-hidden">
               <img
-                src="/public/image/pexels-jakubzerdzicki-22491144.jpg"
+                src="/image/pexels-jakubzerdzicki-22491144.jpg"
                 alt="Borne de recharge"
                 className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
               />

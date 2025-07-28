@@ -25,7 +25,7 @@ function Home() {
             <SwiperSlide>
               <div className="relative h-full">
                 <img
-                  src="/public/image/house-5128521_1280.jpg"
+                  src="/image/house-5128521_1280.jpg"
                   alt="Électricien professionnel"
                   className="w-full h-full object-cover object-center"
                 />
@@ -57,7 +57,7 @@ function Home() {
             <SwiperSlide>
               <div className="relative h-full">
                 <img
-                  src="/public/image/craiyon_205159_ENERGY_EFFECIENCY_AND_UTILITY_MANAGEMENT.png"
+                  src="/image/craiyon_205159_ENERGY_EFFECIENCY_AND_UTILITY_MANAGEMENT.png"
                   alt="Domotique moderne"
                   className="w-full h-full object-cover object-center"
                 />
@@ -89,7 +89,7 @@ function Home() {
             <SwiperSlide>
               <div className="relative h-full">
                 <img
-                  src="/public/image/ai-generated-9143277_640.webp"
+                  src="/image/ai-generated-9143277_640.webp"
                   alt="Borne de recharge"
                   className="w-full h-full object-cover object-center"
                 />
