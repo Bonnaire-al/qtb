@@ -80,6 +80,15 @@ function Quote() {
     }, 400); // durée de l'animation
   };
 
+  // Fonction pour retourner à la saisie des identifiants
+  const handleCancelToStep1 = () => {
+    setServiceModalAnim('out');
+    setTimeout(() => {
+      setShowServiceModal(false);
+      setStep(1); // On retourne à l'étape 1 (saisie des identifiants)
+    }, 400); // durée de l'animation
+  };
+
   // Aperçu PDF (placeholder)
   const handleDownloadPDF = () => {
     alert('Fonction de génération PDF à implémenter');
@@ -88,18 +97,18 @@ function Quote() {
   // Rendu dynamique du formulaire selon le service ET le type de projet
   const renderServiceForm = () => {
     if (formData.service === 'domotique') {
-      if (projectType === 'renovation') return <DomotiqueForm1 onClose={handleCloseServiceModal} />;
-      if (projectType === 'petit_travaux') return <DomotiqueForm2 onClose={handleCloseServiceModal} />;
+      if (projectType === 'renovation') return <DomotiqueForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
+      if (projectType === 'petit_travaux') return <DomotiqueForm2 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
     }
     if (formData.service === 'installation') {
-      if (projectType === 'renovation') return <InstallationForm1 onClose={handleCloseServiceModal} />;
-      if (projectType === 'petit_travaux') return <InstallationForm2 onClose={handleCloseServiceModal} />;
+      if (projectType === 'renovation') return <InstallationForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
+      if (projectType === 'petit_travaux') return <InstallationForm2 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
     }
     if (formData.service === 'securite') {
-      return <SecuriteForm1 onClose={handleCloseServiceModal} />;
+      return <SecuriteForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
     }
     if (formData.service === 'portail') {
-      return <PortailForm1 onClose={handleCloseServiceModal} />;
+      return <PortailForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
     }
     return null;
   };
@@ -248,7 +257,7 @@ function Quote() {
                   className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors bg-cyan-600 text-white border-cyan-600 hover:bg-cyan-700"
                   onClick={() => setProjectType('renovation')}
                 >
-                  Rénovation globale / Neuf
+                  Renovation / Installation neuf
                 </button>
                 <button
                   className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors bg-cyan-100 text-cyan-800 border-cyan-200 hover:bg-cyan-200"
@@ -263,18 +272,11 @@ function Quote() {
         {showServiceModal && ((projectType && (formData.service === 'domotique' || formData.service === 'installation')) || (formData.service === 'portail' || formData.service === 'securite')) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
             <div className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-lg relative transition-transform duration-400 ${serviceModalAnim === 'in' ? 'animate-slide-in-right' : 'animate-slide-out-left'}`}>
-              {/* En-tête avec infos de base */}
+              {/* Titre du service uniquement */}
               <div className="mb-6 border-b pb-4">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2">
                   <span className="text-2xl">{SERVICES.find(s => s.key === formData.service)?.icon}</span>
                   <span className="text-xl font-bold text-cyan-800">{SERVICES.find(s => s.key === formData.service)?.label}</span>
-                </div>
-                <div className="text-gray-700 text-sm">
-                  <div><strong>Nom :</strong> {formData.name}</div>
-                  <div><strong>Email :</strong> {formData.email}</div>
-                  <div><strong>Adresse :</strong> {formData.address}</div>
-                  <div><strong>Téléphone :</strong> {formData.phone}</div>
-                  {formData.company && <div><strong>Entreprise :</strong> {formData.company}</div>}
                 </div>
               </div>
               {/* Formulaire spécifique */}
