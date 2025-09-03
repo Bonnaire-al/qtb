@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
+import ModalQuote from './quotefonction';
 
 export default function DomotiqueForm1({ onClose, onCancel }) {
   const [selectedRoom, setSelectedRoom] = useState('');
   const [selectedServices, setSelectedServices] = useState([]);
   const [showDevisModal, setShowDevisModal] = useState(false);
   const [devisItems, setDevisItems] = useState([]);
-  const [showOtherServicesModal, setShowOtherServicesModal] = useState(false);
 
   const rooms = [
     { value: 'chambre', label: 'Chambre' },
@@ -82,11 +82,14 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
       { value: 'prises', label: 'Prises de courant connectées/commandées' },
       { value: 'lave_linge_seche_linge', label: 'Lave-linge/sèche-linge connecté' }
     ],
-         exterieur: [
-       { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
-       { value: 'prises', label: 'Prise connectée/commandée' },
-       { value: 'interphone', label: 'Interphone connecté' }
-     ]
+    exterieur: [
+      { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
+      { value: 'prises', label: 'Prise connectée/commandée' },
+      { value: 'interphone', label: 'Interphone connecté' },
+      { value: 'alarme_securite', label: 'Alarme sécurité connectée' },
+      { value: 'camera', label: 'Caméra connectée' },
+      { value: 'portail', label: 'Portail connecté' },
+    ]
   };
 
   const handleSubmit = (e) => {
@@ -97,7 +100,7 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
 
   const handleRoomChange = (e) => {
     setSelectedRoom(e.target.value);
-    setSelectedServices([]); // Reset services selection when room changes
+    setSelectedServices([]);
   };
 
   const handleServiceToggle = (serviceValue) => {
@@ -137,25 +140,21 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
 
       setDevisItems(prev => [...prev, newDevisItem]);
       
-      // Reset form
       setSelectedRoom('');
       setSelectedServices([]);
     }
   };
-
-
 
   const handleRemoveDevisItem = (itemId) => {
     setDevisItems(prev => prev.filter(item => item.id !== itemId));
   };
 
   const handleGenerateDevis = () => {
-    console.log('Devis généré:', devisItems);
+    if (devisItems.length === 0) return;
+    // Fermer le modal des prestations et ouvrir ModalQuote
     setShowDevisModal(false);
-    onClose();
+    onClose(devisItems); // Passer les devisItems au composant parent
   };
-
-
 
   return (
     <>
@@ -183,7 +182,7 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
             </select>
           </div>
 
-          {/* Deuxième partie : Checklist des prestations (apparaît seulement si une pièce est sélectionnée) */}
+          {/* Deuxième partie : Checklist des prestations */}
           {selectedRoom && (
             <div>
               <h3 className="text-base font-semibold text-cyan-800 mb-3">
@@ -195,14 +194,14 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
                 <button
                   type="button"
                   onClick={handleSelectAll}
-                  className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition-colors"
+                  className="px-3 py-1 bg-white border-2 border-blue-400 hover:bg-blue-50 text-blue-600 text-xs rounded-lg transition-colors"
                 >
                   Tout sélectionner
                 </button>
                 <button
                   type="button"
                   onClick={handleDeselectAll}
-                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-colors"
+                  className="px-3 py-1 bg-white border-2 border-blue-600 hover:bg-blue-50 text-blue-700 text-xs rounded-lg transition-colors"
                 >
                   Tout désélectionner
                 </button>
@@ -234,58 +233,58 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
             </div>
           )}
 
-                     <div className="flex justify-center space-x-4 pt-2">
-             {/* Div pour le bouton Devis seul */}
-             <div>
-               <button
-                 type="button"
-                 onClick={() => setShowDevisModal(true)}
-                 className="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors flex items-center space-x-1 text-xs"
-                 disabled={devisItems.length === 0}
-               >
-                 <span>Devis</span>
-                 <span className="bg-white text-cyan-600 rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold">
-                   {devisItems.length}
-                 </span>
-               </button>
-             </div>
-             
-                           {/* Div pour Ajouter pièce et Annuler devis */}
-              <div className="flex space-x-2">
-                                 <button 
-                   type="button"
-                   onClick={handleAddToDevis}
-                   className="bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs"
-                   disabled={selectedServices.length === 0}
-                 >
-                   Ajouter prestation
-                 </button>
-                <button 
-                  type="button"
-                  onClick={onCancel}
-                  className="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs"
-                >
-                  Annuler devis
-                </button>
-              </div>
-           </div>
+          <div className="flex justify-between items-center pt-2">
+            {/* Div pour Ajouter pièce et Annuler devis */}
+            <div className="flex space-x-2">
+              <button 
+                type="button"
+                onClick={handleAddToDevis}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs"
+                disabled={selectedServices.length === 0}
+              >
+                Ajouter prestation
+              </button>
+              <button 
+                type="button"
+                onClick={onCancel}
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs"
+              >
+                Annuler devis
+              </button>
+            </div>
+            
+            {/* Div pour le bouton Visualiser devis à droite */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowDevisModal(true)}
+                className="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors flex items-center space-x-1 text-xs"
+                disabled={devisItems.length === 0}
+              >
+                <span>Visualiser devis</span>
+                <span className="bg-white text-cyan-600 rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold">
+                  {devisItems.length}
+                </span>
+              </button>
+            </div>
+          </div>
         </form>
       </div>
 
       {/* Modal Devis */}
       {showDevisModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
             {/* Header avec bouton fermer */}
-                         <div className="flex justify-between items-center p-4 border-b border-gray-200">
-               <h2 className="text-xl font-bold text-cyan-800">Devis - Prestations ajoutées</h2>
-               <button
-                 onClick={() => setShowDevisModal(false)}
-                 className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
-               >
-                 ×
-               </button>
-             </div>
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-cyan-800">Devis - Prestations ajoutées</h2>
+              <button
+                onClick={() => setShowDevisModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
 
             {/* Contenu du modal */}
             <div className="p-6 max-h-[70vh] overflow-y-auto">
@@ -295,150 +294,60 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
                 <div className="space-y-4">
                   {devisItems.map((item) => (
                     <div key={item.id} className="border border-gray-200 rounded-lg p-4">
-                                             <div className="flex items-center justify-between mb-3">
-                         <h3 className="font-semibold text-cyan-800">{item.room}</h3>
-                         <button
-                           onClick={() => handleRemoveDevisItem(item.id)}
-                           className="text-red-500 hover:text-red-700 text-sm"
-                         >
-                           Supprimer
-                         </button>
-                       </div>
-                                             <ul className="space-y-1">
-                         {item.services.map((service, index) => (
-                           <li key={index} className="text-sm text-gray-600 flex items-center justify-between">
-                             <div className="flex items-center">
-                               <span className="w-2 h-2 bg-cyan-500 rounded-full mr-2"></span>
-                               {service}
-                             </div>
-                             <div className="flex items-center space-x-2">
-                               <span className="text-xs text-gray-500">Qté:</span>
-                               <input
-                                 type="number"
-                                 min="1"
-                                 defaultValue="1"
-                                 className="w-12 h-6 px-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                                 placeholder="1"
-                               />
-                             </div>
-                           </li>
-                         ))}
-                       </ul>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-cyan-800">{item.room}</h3>
+                        <button
+                          onClick={() => handleRemoveDevisItem(item.id)}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                      <ul className="space-y-1">
+                        {item.services.map((service, index) => (
+                          <li key={index} className="text-sm text-gray-600 flex items-center justify-between">
+                            <div className="flex items-center">
+                              <span className="w-2 h-2 bg-cyan-500 rounded-full mr-2"></span>
+                              {service}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-gray-500">Qté:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                defaultValue="1"
+                                className="w-12 h-6 px-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                placeholder="1"
+                              />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-                                                                             {/* Footer avec boutons */}
-              <div className="flex justify-end space-x-3 p-4 border-t border-gray-200">
-                <button
-                  onClick={() => setShowDevisModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
-                >
-                  Retour
-                </button>
-                                 <button
-                   onClick={() => setShowOtherServicesModal(true)}
-                   className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-                 >
-                   Autre service
-                 </button>
-                <button
-                  onClick={handleGenerateDevis}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
-                  disabled={devisItems.length === 0}
-                >
-                  Générer le devis
-                </button>
-              </div>
-          </div>
-        </div>
-             )}
-
-               {/* Modal Autres Services */}
-        {showOtherServicesModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-              {/* Header avec bouton fermer */}
-              <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-cyan-800">Autres Services</h2>
-                <button
-                  onClick={() => setShowOtherServicesModal(false)}
-                  className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
-                >
-                  ×
-                </button>
-              </div>
-
-              {/* Contenu du modal */}
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div 
-                    className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => {
-                      setShowOtherServicesModal(false);
-                      // Navigation vers InstallationForm
-                      window.location.href = '/quote?service=installation';
-                    }}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl">💡</span>
-                      <div>
-                        <h3 className="font-semibold text-cyan-800 text-lg">Installation électrique générale</h3>
-                        <p className="text-sm text-gray-600">Installation complète ou rénovation électrique</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div 
-                    className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => {
-                      setShowOtherServicesModal(false);
-                      // Navigation vers SecuriteForm
-                      window.location.href = '/quote?service=securite';
-                    }}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl">🔒</span>
-                      <div>
-                        <h3 className="font-semibold text-cyan-800 text-lg">Système de sécurité</h3>
-                        <p className="text-sm text-gray-600">Alarmes, caméras et systèmes de surveillance</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div 
-                    className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => {
-                      setShowOtherServicesModal(false);
-                      // Navigation vers PortailForm
-                      window.location.href = '/quote?service=portail';
-                    }}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl">🚪</span>
-                      <div>
-                        <h3 className="font-semibold text-cyan-800 text-lg">Portail électrique / Volet roulant</h3>
-                        <p className="text-sm text-gray-600">Installation et maintenance de portails et volets</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex justify-end space-x-3 p-4 border-t border-gray-200">
-                <button
-                  onClick={() => setShowOtherServicesModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
-                >
-                  Fermer
-                </button>
-              </div>
+            {/* Footer avec boutons */}
+            <div className="flex justify-end space-x-3 p-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowDevisModal(false)}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                Autre prestation
+              </button>
+              <button
+                onClick={handleGenerateDevis}
+                className="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+                disabled={devisItems.length === 0}
+              >
+                Générer le devis
+              </button>
             </div>
           </div>
-        )}
-
-
-     </>
-   );
- } 
+        </div>
+      )}
+    </>
+  );
+} 

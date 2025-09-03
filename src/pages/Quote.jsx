@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import DomotiqueForm1 from '../components/DomotiqueForm';
-import DomotiqueForm2 from '../components/DomotiqueForm2';
 import InstallationForm1 from '../components/InstallationForm';
-import InstallationForm2 from '../components/InstallationForm2';
 import SecuriteForm1 from '../components/SecuriteForm';
 import PortailForm1 from '../components/PortailForm';
-// import jsPDF from 'jspdf';
+import ModalQuote from '../components/quotefonction';
 
 const SERVICES = [
   { key: 'domotique', label: 'Domotique', icon: '🏠' },
@@ -28,8 +26,7 @@ function Quote() {
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [serviceModalAnim, setServiceModalAnim] = useState('in'); // 'in', 'out'
   const [modalAnim, setModalAnim] = useState('in'); // pour le modal de choix
-  // Ajouter un nouvel état pour le type de projet (renovation/petit travaux)
-  const [projectType, setProjectType] = useState(''); // '' | 'renovation' | 'petit_travaux'
+  const [devisItems, setDevisItems] = useState([]); // Stockage des prestations sélectionnées
 
   // Gestion des champs
   const handleChange = (e) => {
@@ -44,7 +41,6 @@ function Quote() {
     e.preventDefault();
     setShowModal(true);
     setModalAnim('in');
-    setProjectType(''); // reset à chaque fois
   };
 
   // Sélection du service
@@ -58,21 +54,16 @@ function Quote() {
       setModalAnim('out');
       setTimeout(() => {
         setShowModal(false);
-        // Pour portail et sécurité, aller directement au formulaire
-        if (formData.service === 'portail' || formData.service === 'securite') {
-          setShowServiceModal(true);
-          setServiceModalAnim('in');
-        } else {
-          // Pour domotique et installation, afficher le choix rénovation/petit travaux
-          setShowServiceModal(true);
-          setServiceModalAnim('in');
-        }
+        // Aller directement au formulaire du service
+        setShowServiceModal(true);
+        setServiceModalAnim('in');
       }, 400); // durée de l'animation
     }
   };
 
   // Quand on valide le formulaire spécifique : slide out left puis afficher aperçu
-  const handleCloseServiceModal = () => {
+  const handleCloseServiceModal = (items) => {
+    setDevisItems(items || []); // Stocker les prestations sélectionnées
     setServiceModalAnim('out');
     setTimeout(() => {
       setShowServiceModal(false);
@@ -89,20 +80,13 @@ function Quote() {
     }, 400); // durée de l'animation
   };
 
-  // Aperçu PDF (placeholder)
-  const handleDownloadPDF = () => {
-    alert('Fonction de génération PDF à implémenter');
-  };
-
-  // Rendu dynamique du formulaire selon le service ET le type de projet
+  // Rendu dynamique du formulaire selon le service
   const renderServiceForm = () => {
     if (formData.service === 'domotique') {
-      if (projectType === 'renovation') return <DomotiqueForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
-      if (projectType === 'petit_travaux') return <DomotiqueForm2 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
+      return <DomotiqueForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
     }
     if (formData.service === 'installation') {
-      if (projectType === 'renovation') return <InstallationForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
-      if (projectType === 'petit_travaux') return <InstallationForm2 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
+      return <InstallationForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
     }
     if (formData.service === 'securite') {
       return <SecuriteForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
@@ -248,28 +232,7 @@ function Quote() {
         )}
 
         {/* Modal formulaire spécifique au service (slide-in depuis la droite) */}
-        {showServiceModal && !projectType && (formData.service === 'domotique' || formData.service === 'installation') && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative transition-transform duration-400 ${serviceModalAnim === 'in' ? 'animate-slide-in-center' : 'animate-slide-out-left'}`}>
-              <h2 className="text-2xl font-bold text-cyan-800 mb-6 text-center">Quel est le type de projet ?</h2>
-              <div className="flex flex-col gap-4">
-                <button
-                  className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors bg-cyan-600 text-white border-cyan-600 hover:bg-cyan-700"
-                  onClick={() => setProjectType('renovation')}
-                >
-                  Renovation / Installation neuf
-                </button>
-                <button
-                  className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors bg-cyan-100 text-cyan-800 border-cyan-200 hover:bg-cyan-200"
-                  onClick={() => setProjectType('petit_travaux')}
-                >
-                  Petit travaux
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {showServiceModal && ((projectType && (formData.service === 'domotique' || formData.service === 'installation')) || (formData.service === 'portail' || formData.service === 'securite')) && (
+        {showServiceModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
             <div className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-lg relative transition-transform duration-400 ${serviceModalAnim === 'in' ? 'animate-slide-in-right' : 'animate-slide-out-left'}`}>
               {/* Titre du service uniquement */}
@@ -285,27 +248,13 @@ function Quote() {
           </div>
         )}
 
-        {/* Étape 2 : Aperçu et PDF */}
+        {/* Étape 2 : Aperçu du devis au format A4 */}
         {step === 2 && (
-          <div className="bg-white rounded-xl shadow-lg p-8 animate-slide-in-right">
-            <h2 className="text-2xl font-bold text-cyan-800 mb-6 text-center">Aperçu de votre demande de devis</h2>
-            <div className="space-y-4 text-lg text-gray-700 max-w-xl mx-auto">
-              <div><strong>Nom complet :</strong> {formData.name}</div>
-              <div><strong>Email :</strong> {formData.email}</div>
-              <div><strong>Adresse :</strong> {formData.address}</div>
-              <div><strong>Téléphone :</strong> {formData.phone}</div>
-              {formData.company && <div><strong>Entreprise :</strong> {formData.company}</div>}
-              <div><strong>Service choisi :</strong> {SERVICES.find(s => s.key === formData.service)?.label}</div>
-            </div>
-            <div className="text-center mt-8">
-              <button
-                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors transform hover:scale-105"
-                onClick={handleDownloadPDF}
-              >
-                Télécharger en PDF
-              </button>
-            </div>
-          </div>
+          <ModalQuote 
+            formData={formData} 
+            onBackToStep1={() => setStep(1)} 
+            devisItems={devisItems}
+          />
         )}
       </div>
     </div>
