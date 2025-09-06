@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
-import DomotiqueForm1 from '../components/DomotiqueForm';
-import InstallationForm1 from '../components/InstallationForm';
-import SecuriteForm1 from '../components/SecuriteForm';
-import PortailForm1 from '../components/PortailForm';
-import ModalQuote from '../components/quotefonction';
+import Form from '../components/QuoteForm';
+import ModalQuote from '../components/QuoteFonction(pdf)';
 
 const SERVICES = [
   { key: 'domotique', label: 'Domotique', icon: '🏠' },
@@ -82,19 +79,11 @@ function Quote() {
 
   // Rendu dynamique du formulaire selon le service
   const renderServiceForm = () => {
-    if (formData.service === 'domotique') {
-      return <DomotiqueForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
-    }
-    if (formData.service === 'installation') {
-      return <InstallationForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
-    }
-    if (formData.service === 'securite') {
-      return <SecuriteForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
-    }
-    if (formData.service === 'portail') {
-      return <PortailForm1 onClose={handleCloseServiceModal} onCancel={handleCancelToStep1} />;
-    }
-    return null;
+    return <Form 
+      serviceType={formData.service} 
+      onClose={handleCloseServiceModal} 
+      onCancel={handleCancelToStep1} 
+    />;
   };
 
   return (

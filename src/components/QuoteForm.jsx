@@ -1,96 +1,22 @@
 import React, { useState } from 'react';
-import ModalQuote from './quotefonction';
+import { rooms, servicesByRoom, specificServices, serviceConfig } from '../data/servicesData';
+import { prixPrestations } from '../data/prix';
 
-export default function DomotiqueForm1({ onClose, onCancel }) {
+export default function Form({ serviceType, onClose, onCancel }) {
   const [selectedRoom, setSelectedRoom] = useState('');
   const [selectedServices, setSelectedServices] = useState([]);
   const [showDevisModal, setShowDevisModal] = useState(false);
   const [devisItems, setDevisItems] = useState([]);
 
-  const rooms = [
-    { value: 'chambre', label: 'Chambre' },
-    { value: 'salon', label: 'Salon' },
-    { value: 'cuisine', label: 'Cuisine' },
-    { value: 'salle_de_bain', label: 'Salle de bain' },
-    { value: 'toilette', label: 'Toilette' },
-    { value: 'couloir', label: 'Couloir' },
-    { value: 'cellier', label: 'Cellier' },
-    { value: 'cave', label: 'Cave' },
-    { value: 'exterieur', label: 'Extérieur' }
-  ];
+  // Configuration du service actuel
+  const config = serviceConfig[serviceType];
+  const currentRooms = rooms[serviceType];
+  const currentServicesByRoom = servicesByRoom[serviceType];
+  const currentSpecificServices = specificServices[serviceType];
 
-  const servicesByRoom = {
-    chambre: [
-      { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
-      { value: 'prises', label: 'Prises de courant connectées/commandées' },
-      { value: 'chauffage', label: 'Chauffage connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
-      { value: 'internet', label: 'Prise internet' },
-      { value: 'tv', label: 'Prise TV' }
-    ],
-    salon: [
-      { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
-      { value: 'prises', label: 'Prises de courant connectées/commandées' },
-      { value: 'chauffage', label: 'Chauffage connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
-      { value: 'internet', label: 'Prise internet' },
-      { value: 'tv', label: 'Prise TV' }
-    ],
-    cuisine: [
-      { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
-      { value: 'prises', label: 'Prises de courant connectées/commandées' },
-      { value: 'chauffage', label: 'Chauffage connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
-      { value: 'internet', label: 'Prise internet' },
-      { value: 'tv', label: 'Prise TV' },
-      { value: 'plaque_cuisson', label: 'Plaque cuisson connectée' },
-      { value: 'four', label: 'Four connecté' },
-      { value: 'lave_linge_vaisselle', label: 'Lave linge/vaisselle connecté' },
-      { value: 'applique', label: 'Applique connectée' }
-    ],
-    salle_de_bain: [
-      { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
-      { value: 'prises', label: 'Prises de courant connectées/commandées' },
-      { value: 'chauffage', label: 'sèche serviette connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
-      { value: 'applique_miroir', label: 'Applique/miroir connecté' }
-    ],
-    toilette: [
-      { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
-      { value: 'prises', label: 'Prise connectée/détecteur' },
-      { value: 'applique_miroir', label: 'Applique/miroir connecté' }
-    ],
-    couloir: [
-      { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
-      { value: 'prises', label: 'Prises de courant connectées/commandées' },
-      { value: 'chauffage', label: 'Chauffage connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
-      { value: 'internet', label: 'Prise internet' },
-      { value: 'tv', label: 'Prise TV' }
-    ],
-    cellier: [
-      { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
-      { value: 'prises', label: 'Prises de courant connectées/commandées' },
-      { value: 'chauffage', label: 'Chauffage connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
-      { value: 'internet', label: 'Prise internet' },
-      { value: 'tv', label: 'Prise TV' },
-      { value: 'lave_linge_vaisselle', label: 'Lave linge/vaisselle connecté' }
-    ],
-    cave: [
-      { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
-      { value: 'prises', label: 'Prises de courant connectées/commandées' },
-      { value: 'lave_linge_seche_linge', label: 'Lave-linge/sèche-linge connecté' }
-    ],
-    exterieur: [
-      { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
-      { value: 'prises', label: 'Prise connectée/commandée' },
-      { value: 'interphone', label: 'Interphone connecté' },
-      { value: 'alarme_securite', label: 'Alarme sécurité connectée' },
-      { value: 'camera', label: 'Caméra connectée' },
-      { value: 'portail', label: 'Portail connecté' },
-    ]
-  };
+  // Détermine si le service utilise des pièces ou des services spécifiques
+  const hasRooms = currentRooms && currentRooms.length > 0;
+  const hasSpecificServices = currentSpecificServices && currentSpecificServices.length > 0;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -114,8 +40,11 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
   };
 
   const handleSelectAll = () => {
-    if (selectedRoom && servicesByRoom[selectedRoom]) {
-      const allServices = servicesByRoom[selectedRoom].map(service => service.value);
+    if (hasRooms && selectedRoom && currentServicesByRoom[selectedRoom]) {
+      const allServices = currentServicesByRoom[selectedRoom].map(service => service.value);
+      setSelectedServices(allServices);
+    } else if (hasSpecificServices) {
+      const allServices = currentSpecificServices.map(service => service.value);
       setSelectedServices(allServices);
     }
   };
@@ -125,21 +54,56 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
   };
 
   const handleAddToDevis = () => {
-    if (selectedRoom && selectedServices.length > 0) {
-      const roomLabel = rooms.find(r => r.value === selectedRoom)?.label;
-      const selectedServiceLabels = selectedServices.map(serviceValue => 
-        servicesByRoom[selectedRoom].find(s => s.value === serviceValue)?.label
-      ).filter(Boolean);
+    if (selectedServices.length > 0) {
+      let roomLabel = '';
+      let selectedServiceLabels = [];
+
+      if (hasRooms && selectedRoom) {
+        roomLabel = currentRooms.find(r => r.value === selectedRoom)?.label;
+        selectedServiceLabels = selectedServices.map(serviceValue => 
+          currentServicesByRoom[selectedRoom].find(s => s.value === serviceValue)?.label
+        ).filter(Boolean);
+      } else if (hasSpecificServices) {
+        roomLabel = config.categoryLabel;
+        selectedServiceLabels = selectedServices.map(serviceValue => 
+          currentSpecificServices.find(s => s.value === serviceValue)?.label
+        ).filter(Boolean);
+      }
 
       const newDevisItem = {
         id: Date.now(),
         room: roomLabel,
-        services: selectedServiceLabels,
+        services: selectedServiceLabels.map(service => {
+          // Récupérer le prix automatiquement
+          let prixHT = 0;
+          if (hasRooms && selectedRoom && prixPrestations[serviceType] && prixPrestations[serviceType][selectedRoom]) {
+            const serviceKey = Object.keys(prixPrestations[serviceType][selectedRoom]).find(key => 
+              prixPrestations[serviceType][selectedRoom][key].description === service
+            );
+            if (serviceKey) {
+              prixHT = prixPrestations[serviceType][selectedRoom][serviceKey].prixHT;
+            }
+          } else if (hasSpecificServices && prixPrestations[serviceType]) {
+            const serviceKey = Object.keys(prixPrestations[serviceType]).find(key => 
+              prixPrestations[serviceType][key].description === service
+            );
+            if (serviceKey) {
+              prixHT = prixPrestations[serviceType][serviceKey].prixHT;
+            }
+          }
+          
+          return {
+            label: service,
+            quantity: 1,
+            priceHT: prixHT
+          };
+        }),
         completed: false
       };
 
       setDevisItems(prev => [...prev, newDevisItem]);
       
+      // Reset form
       setSelectedRoom('');
       setSelectedServices([]);
     }
@@ -149,11 +113,56 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
     setDevisItems(prev => prev.filter(item => item.id !== itemId));
   };
 
+  const handleQuantityChange = (itemId, serviceIndex, quantity) => {
+    setDevisItems(prev => prev.map(item => 
+      item.id === itemId 
+        ? {
+            ...item,
+            services: item.services.map((service, index) => 
+              index === serviceIndex 
+                ? { ...service, quantity: parseInt(quantity) || 1 }
+                : service
+            )
+          }
+        : item
+    ));
+  };
+
+
   const handleGenerateDevis = () => {
     if (devisItems.length === 0) return;
-    // Fermer le modal des prestations et ouvrir ModalQuote
     setShowDevisModal(false);
     onClose(devisItems); // Passer les devisItems au composant parent
+  };
+
+  // Rendu des services selon le type
+  const renderServices = () => {
+    if (hasRooms && selectedRoom && currentServicesByRoom[selectedRoom]) {
+      return currentServicesByRoom[selectedRoom].map((service) => (
+        <label key={service.value} className="flex items-center space-x-2 p-2 border border-gray-100 rounded hover:bg-gray-50 cursor-pointer text-sm">
+          <input
+            type="checkbox"
+            checked={selectedServices.includes(service.value)}
+            onChange={() => handleServiceToggle(service.value)}
+            className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500 focus:ring-1"
+          />
+          <span className="text-gray-700 text-sm">{service.label}</span>
+        </label>
+      ));
+    } else if (hasSpecificServices) {
+      return currentSpecificServices.map((service) => (
+        <label key={service.value} className="flex items-center space-x-2 p-2 border border-gray-100 rounded hover:bg-gray-50 cursor-pointer text-sm">
+          <input
+            type="checkbox"
+            checked={selectedServices.includes(service.value)}
+            onChange={() => handleServiceToggle(service.value)}
+            className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500 focus:ring-1"
+          />
+          <span className="text-gray-700 text-sm">{service.label}</span>
+        </label>
+      ));
+    }
+    return null;
   };
 
   return (
@@ -162,31 +171,36 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Titre du projet */}
           <div className="text-center mb-4">
-            <h2 className="text-xl font-bold text-cyan-800">Projet rénovation / installation neuf</h2>
+            <h2 className="text-xl font-bold text-cyan-800">{config.title}</h2>
           </div>
 
-          {/* Première partie : Sélection de la pièce */}
-          <div>
-            <select
-              value={selectedRoom}
-              onChange={handleRoomChange}
-              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
-              required
-            >
-              <option value="">Choisissez la pièce</option>
-              {rooms.map((room) => (
-                <option key={room.value} value={room.value}>
-                  {room.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Sélection de la pièce (seulement pour domotique et installation) */}
+          {hasRooms && (
+            <div>
+              <select
+                value={selectedRoom}
+                onChange={handleRoomChange}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
+                required
+              >
+                <option value="">Choisissez la pièce</option>
+                {currentRooms.map((room) => (
+                  <option key={room.value} value={room.value}>
+                    {room.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          {/* Deuxième partie : Checklist des prestations */}
-          {selectedRoom && (
+          {/* Checklist des prestations */}
+          {(hasRooms && selectedRoom) || hasSpecificServices ? (
             <div>
               <h3 className="text-base font-semibold text-cyan-800 mb-3">
-                Prestations pour {rooms.find(r => r.value === selectedRoom)?.label}
+                {hasRooms && selectedRoom 
+                  ? `Prestations pour ${currentRooms.find(r => r.value === selectedRoom)?.label}`
+                  : `Prestations ${config.categoryLabel.toLowerCase()}`
+                }
               </h3>
               
               {/* Boutons Tout sélectionner / Tout désélectionner */}
@@ -209,17 +223,7 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
 
               {/* Checklist des prestations avec scroll */}
               <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
-                {servicesByRoom[selectedRoom]?.map((service) => (
-                  <label key={service.value} className="flex items-center space-x-2 p-2 border border-gray-100 rounded hover:bg-gray-50 cursor-pointer text-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedServices.includes(service.value)}
-                      onChange={() => handleServiceToggle(service.value)}
-                      className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500 focus:ring-1"
-                    />
-                    <span className="text-gray-700 text-sm">{service.label}</span>
-                  </label>
-                ))}
+                {renderServices()}
               </div>
 
               {/* Affichage du nombre de prestations sélectionnées */}
@@ -231,10 +235,10 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
 
           <div className="flex justify-between items-center pt-2">
-            {/* Div pour Ajouter pièce et Annuler devis */}
+            {/* Div pour Ajouter prestation et Annuler devis */}
             <div className="flex space-x-2">
               <button 
                 type="button"
@@ -289,7 +293,7 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
             {/* Contenu du modal */}
             <div className="p-6 max-h-[70vh] overflow-y-auto">
               {devisItems.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">Aucune pièce ajoutée au devis</p>
+                <p className="text-gray-500 text-center py-8">Aucune prestation ajoutée au devis</p>
               ) : (
                 <div className="space-y-4">
                   {devisItems.map((item) => (
@@ -306,19 +310,23 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
                       <ul className="space-y-1">
                         {item.services.map((service, index) => (
                           <li key={index} className="text-sm text-gray-600 flex items-center justify-between">
-                            <div className="flex items-center">
+                            <div className="flex items-center flex-1">
                               <span className="w-2 h-2 bg-cyan-500 rounded-full mr-2"></span>
-                              {service}
+                              <span className="flex-1">{service.label}</span>
                             </div>
                             <div className="flex items-center space-x-2">
                               <span className="text-xs text-gray-500">Qté:</span>
                               <input
                                 type="number"
                                 min="1"
-                                defaultValue="1"
+                                value={service.quantity}
+                                onChange={(e) => handleQuantityChange(item.id, index, e.target.value)}
                                 className="w-12 h-6 px-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                                placeholder="1"
                               />
+                              <span className="text-xs text-gray-500">Prix HT:</span>
+                              <span className="text-xs font-medium text-green-600">
+                                {service.priceHT > 0 ? `${service.priceHT.toFixed(2)} €` : 'À définir'}
+                              </span>
                             </div>
                           </li>
                         ))}
@@ -350,4 +358,4 @@ export default function DomotiqueForm1({ onClose, onCancel }) {
       )}
     </>
   );
-} 
+}

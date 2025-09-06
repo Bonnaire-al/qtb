@@ -61,6 +61,7 @@ const Navbar = () => {
             <Link
               to="/accueil"
               className="font-medium hover:text-cyan-200 transition-colors duration-300 group relative cursor-pointer text-xs md:text-xs lg:text-base xl:text-lg 2xl:text-xl hover:scale-105"
+              
             >
               Accueil
               <span className="absolute inset-x-0 bottom-0 h-0.5 bg-cyan-200 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></span>
