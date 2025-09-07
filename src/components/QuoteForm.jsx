@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { rooms, servicesByRoom, specificServices, serviceConfig } from '../data/servicesData';
+import { roomsByService, servicesByRoom, specificServices, serviceConfig } from '../data/servicesData';
 import { prixPrestations } from '../data/prix';
 
 export default function Form({ serviceType, onClose, onCancel }) {
   const [selectedRoom, setSelectedRoom] = useState('');
   const [selectedServices, setSelectedServices] = useState([]);
+  const [selectedInstallationType, setSelectedInstallationType] = useState('');
   const [showDevisModal, setShowDevisModal] = useState(false);
   const [devisItems, setDevisItems] = useState([]);
 
   // Configuration du service actuel
   const config = serviceConfig[serviceType];
-  const currentRooms = rooms[serviceType];
+  const currentRooms = roomsByService[serviceType];
   const currentServicesByRoom = servicesByRoom[serviceType];
   const currentSpecificServices = specificServices[serviceType];
 
@@ -27,6 +28,7 @@ export default function Form({ serviceType, onClose, onCancel }) {
   const handleRoomChange = (e) => {
     setSelectedRoom(e.target.value);
     setSelectedServices([]);
+    setSelectedInstallationType('');
   };
 
   const handleServiceToggle = (serviceValue) => {
@@ -53,6 +55,10 @@ export default function Form({ serviceType, onClose, onCancel }) {
     setSelectedServices([]);
   };
 
+  const handleInstallationTypeChange = (e) => {
+    setSelectedInstallationType(e.target.value);
+  };
+
   const handleAddToDevis = () => {
     if (selectedServices.length > 0) {
       let roomLabel = '';
@@ -70,9 +76,20 @@ export default function Form({ serviceType, onClose, onCancel }) {
         ).filter(Boolean);
       }
 
+      // Coefficients selon le type d'installation
+      const installationCoefficients = {
+        'saignee_encastre': 1.3,     // +30% pour saignée/encastré
+        'saillie_moulure': 1.15,     // +15% pour saillie/moulure
+        'cloison_creuse': 1.0        // +0% pour cloison creuse
+      };
+
+      const coefficient = installationCoefficients[selectedInstallationType] || 1.0;
+
       const newDevisItem = {
         id: Date.now(),
         room: roomLabel,
+        installationType: selectedInstallationType,
+        coefficient: coefficient,
         services: selectedServiceLabels.map(service => {
           // Récupérer le prix automatiquement
           let prixHT = 0;
@@ -95,7 +112,7 @@ export default function Form({ serviceType, onClose, onCancel }) {
           return {
             label: service,
             quantity: 1,
-            priceHT: prixHT
+            priceHT: prixHT * coefficient // Appliquer le coefficient
           };
         }),
         completed: false
@@ -106,6 +123,7 @@ export default function Form({ serviceType, onClose, onCancel }) {
       // Reset form
       setSelectedRoom('');
       setSelectedServices([]);
+      setSelectedInstallationType('');
     }
   };
 
@@ -234,6 +252,48 @@ export default function Form({ serviceType, onClose, onCancel }) {
                   </p>
                 </div>
               )}
+
+              {/* Choix du type d'installation (seulement pour domotique et installation avec pièces) */}
+              {hasRooms && selectedRoom && selectedServices.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-semibold text-cyan-800 mb-2">Type d'installation :</h4>
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2 p-2 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                      <input
+                        type="radio"
+                        name="installationType"
+                        value="saignee_encastre"
+                        checked={selectedInstallationType === 'saignee_encastre'}
+                        onChange={handleInstallationTypeChange}
+                        className="w-4 h-4 text-cyan-600 border-gray-300 focus:ring-cyan-500"
+                      />
+                      <span className="text-gray-700">Saignée/Encastré (+30%)</span>
+                    </label>
+                    <label className="flex items-center space-x-2 p-2 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                      <input
+                        type="radio"
+                        name="installationType"
+                        value="saillie_moulure"
+                        checked={selectedInstallationType === 'saillie_moulure'}
+                        onChange={handleInstallationTypeChange}
+                        className="w-4 h-4 text-cyan-600 border-gray-300 focus:ring-cyan-500"
+                      />
+                      <span className="text-gray-700">Saillie/Moulure (+15%)</span>
+                    </label>
+                    <label className="flex items-center space-x-2 p-2 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                      <input
+                        type="radio"
+                        name="installationType"
+                        value="cloison_creuse"
+                        checked={selectedInstallationType === 'cloison_creuse'}
+                        onChange={handleInstallationTypeChange}
+                        className="w-4 h-4 text-cyan-600 border-gray-300 focus:ring-cyan-500"
+                      />
+                      <span className="text-gray-700">Cloison creuse (+0%)</span>
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
 
@@ -243,8 +303,8 @@ export default function Form({ serviceType, onClose, onCancel }) {
               <button 
                 type="button"
                 onClick={handleAddToDevis}
-                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs"
-                disabled={selectedServices.length === 0}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
+                disabled={selectedServices.length === 0 || (hasRooms && selectedRoom && !selectedInstallationType)}
               >
                 Ajouter prestation
               </button>
@@ -299,7 +359,21 @@ export default function Form({ serviceType, onClose, onCancel }) {
                   {devisItems.map((item) => (
                     <div key={item.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold text-cyan-800">{item.room}</h3>
+                        <div>
+                          <h3 className="font-semibold text-cyan-800">{item.room}</h3>
+                          {item.installationType && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              Type: {item.installationType === 'saignee_encastre' ? 'Saignée/Encastré' : 
+                                     item.installationType === 'saillie_moulure' ? 'Saillie/Moulure' :
+                                     item.installationType === 'cloison_creuse' ? 'Cloison creuse' : item.installationType}
+                              {item.coefficient > 1 && (
+                                <span className="ml-2 text-green-600 font-medium">
+                                  (Coefficient: {item.coefficient}x)
+                                </span>
+                              )}
+                            </p>
+                          )}
+                        </div>
                         <button
                           onClick={() => handleRemoveDevisItem(item.id)}
                           className="text-red-500 hover:text-red-700 text-sm"
@@ -323,10 +397,6 @@ export default function Form({ serviceType, onClose, onCancel }) {
                                 onChange={(e) => handleQuantityChange(item.id, index, e.target.value)}
                                 className="w-12 h-6 px-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-cyan-500"
                               />
-                              <span className="text-xs text-gray-500">Prix HT:</span>
-                              <span className="text-xs font-medium text-green-600">
-                                {service.priceHT > 0 ? `${service.priceHT.toFixed(2)} €` : 'À définir'}
-                              </span>
                             </div>
                           </li>
                         ))}

@@ -1,29 +1,24 @@
 // Données centralisées pour tous les services
 
-export const rooms = {
-  domotique: [
-    { value: 'chambre', label: 'Chambre' },
-    { value: 'salon', label: 'Salon' },
-    { value: 'cuisine', label: 'Cuisine' },
-    { value: 'salle_de_bain', label: 'Salle de bain' },
-    { value: 'toilette', label: 'Toilette' },
-    { value: 'couloir', label: 'Couloir' },
-    { value: 'cellier', label: 'Cellier' },
-    { value: 'cave', label: 'Cave' },
-    { value: 'exterieur', label: 'Extérieur' }
-  ],
-  installation: [
-    { value: 'chambre', label: 'Chambre' },
-    { value: 'salon', label: 'Salon' },
-    { value: 'cuisine', label: 'Cuisine' },
-    { value: 'salle_de_bain', label: 'Salle de bain' },
-    { value: 'toilette', label: 'Toilette' },
-    { value: 'couloir', label: 'Couloir' },
-    { value: 'garage', label: 'Garage' },
-    { value: 'cave', label: 'Cave' },
-    { value: 'grenier', label: 'Grenier' },
-    { value: 'exterieur', label: 'Extérieur' }
-  ],
+// Pièces communes pour domotique et installation
+export const rooms = [
+  { value: 'chambre', label: 'Chambre' },
+  { value: 'salon', label: 'Salon' },
+  { value: 'cuisine', label: 'Cuisine' },
+  { value: 'salle_de_bain', label: 'Salle de bain' },
+  { value: 'toilette', label: 'Toilette' },
+  { value: 'couloir', label: 'Couloir' },
+  { value: 'cellier', label: 'Cellier' },
+  { value: 'cave', label: 'Cave' },
+  { value: 'garage', label: 'Garage' },
+  { value: 'grenier', label: 'Grenier' },
+  { value: 'exterieur', label: 'Extérieur' }
+];
+
+// Pièces spécifiques par service (pour les services qui n'ont pas de pièces)
+export const roomsByService = {
+  domotique: rooms.filter(room => !['garage', 'grenier'].includes(room.value)),
+  installation: rooms,
   portail: [], // Pas de pièces pour le portail
   securite: [] // Pas de pièces pour la sécurité
 };
@@ -107,7 +102,10 @@ export const servicesByRoom = {
       { value: 'prises', label: 'Installation prises de courant' },
       { value: 'interrupteurs', label: 'Installation interrupteurs' },
       { value: 'tableau', label: 'Connexion tableau électrique' },
-      { value: 'detecteur', label: 'Installation détecteur de fumée' }
+      { value: 'detecteur', label: 'Installation détecteur de fumée' },
+      { value: 'prise_tv', label: 'Installation prise TV' },
+      { value: 'prise_telephone', label: 'Installation prise téléphone' },
+      { value: 'prise_internet', label: 'Installation prise internet RJ45' }
     ],
     salon: [
       { value: 'eclairage', label: 'Installation éclairage' },
@@ -115,47 +113,66 @@ export const servicesByRoom = {
       { value: 'interrupteurs', label: 'Installation interrupteurs' },
       { value: 'tableau', label: 'Connexion tableau électrique' },
       { value: 'detecteur', label: 'Installation détecteur de fumée' },
-      { value: 'tv', label: 'Installation prises TV/Internet' }
+      { value: 'prise_tv', label: 'Installation prise TV' },
+      { value: 'prise_telephone', label: 'Installation prise téléphone' },
+      { value: 'prise_internet', label: 'Installation prise internet RJ45' }
     ],
     cuisine: [
       { value: 'eclairage', label: 'Installation éclairage' },
+      { value: 'eclairage_applique', label: 'Installation éclairage applique' },
       { value: 'prises', label: 'Installation prises de courant' },
       { value: 'interrupteurs', label: 'Installation interrupteurs' },
+      { value: 'interrupteur_double', label: 'Installation interrupteur double' },
       { value: 'tableau', label: 'Connexion tableau électrique' },
       { value: 'detecteur', label: 'Installation détecteur de fumée' },
       { value: 'plaque_cuisson', label: 'Installation plaque de cuisson' },
       { value: 'four', label: 'Installation four électrique' },
       { value: 'lave_linge', label: 'Installation lave-linge' },
-      { value: 'vaisselle', label: 'Installation lave-vaisselle' }
+      { value: 'vaisselle', label: 'Installation lave-vaisselle' },
+      { value: 'prise_tv', label: 'Installation prise TV' },
+      { value: 'prise_telephone', label: 'Installation prise téléphone' },
+      { value: 'prise_internet', label: 'Installation prise internet RJ45' }
     ],
     salle_de_bain: [
       { value: 'eclairage', label: 'Installation éclairage' },
+      { value: 'eclairage_applique', label: 'Installation éclairage applique/miroir' },
       { value: 'prises', label: 'Installation prises de courant' },
       { value: 'interrupteurs', label: 'Installation interrupteurs' },
+      { value: 'interrupteur_double', label: 'Installation interrupteur double' },
       { value: 'tableau', label: 'Connexion tableau électrique' },
       { value: 'detecteur', label: 'Installation détecteur de fumée' },
       { value: 'seche_serviette', label: 'Installation sèche-serviette' },
-      { value: 'chauffe_eau', label: 'Installation chauffe-eau' }
+      { value: 'chauffe_eau', label: 'Installation chauffe-eau' },
+      { value: 'prise_tv', label: 'Installation prise TV' },
+      { value: 'prise_telephone', label: 'Installation prise téléphone' },
+      { value: 'prise_internet', label: 'Installation prise internet RJ45' }
     ],
     toilette: [
       { value: 'eclairage', label: 'Installation éclairage' },
       { value: 'prises', label: 'Installation prises de courant' },
       { value: 'interrupteurs', label: 'Installation interrupteurs' },
-      { value: 'tableau', label: 'Connexion tableau électrique' }
+      { value: 'tableau', label: 'Connexion tableau électrique' },
+  
     ],
     couloir: [
       { value: 'eclairage', label: 'Installation éclairage' },
       { value: 'prises', label: 'Installation prises de courant' },
       { value: 'interrupteurs', label: 'Installation interrupteurs' },
       { value: 'tableau', label: 'Connexion tableau électrique' },
-      { value: 'detecteur', label: 'Installation détecteur de fumée' }
+      { value: 'detecteur', label: 'Installation détecteur de fumée' },
+      { value: 'prise_tv', label: 'Installation prise TV' },
+      { value: 'prise_telephone', label: 'Installation prise téléphone' },
+      { value: 'prise_internet', label: 'Installation prise internet RJ45' }
     ],
     garage: [
       { value: 'eclairage', label: 'Installation éclairage' },
       { value: 'prises', label: 'Installation prises de courant' },
       { value: 'interrupteurs', label: 'Installation interrupteurs' },
       { value: 'tableau', label: 'Connexion tableau électrique' },
-      { value: 'portail', label: 'Installation portail électrique' }
+      { value: 'portail', label: 'Installation portail électrique' },
+      { value: 'prise_tv', label: 'Installation prise TV' },
+      { value: 'prise_telephone', label: 'Installation prise téléphone' },
+      { value: 'prise_internet', label: 'Installation prise internet RJ45' }
     ],
     cave: [
       { value: 'eclairage', label: 'Installation éclairage' },
@@ -163,13 +180,19 @@ export const servicesByRoom = {
       { value: 'interrupteurs', label: 'Installation interrupteurs' },
       { value: 'tableau', label: 'Connexion tableau électrique' },
       { value: 'lave_linge', label: 'Installation lave-linge' },
-      { value: 'seche_linge', label: 'Installation sèche-linge' }
+      { value: 'seche_linge', label: 'Installation sèche-linge' },
+      { value: 'prise_tv', label: 'Installation prise TV' },
+      { value: 'prise_telephone', label: 'Installation prise téléphone' },
+      { value: 'prise_internet', label: 'Installation prise internet RJ45' }
     ],
     grenier: [
       { value: 'eclairage', label: 'Installation éclairage' },
       { value: 'prises', label: 'Installation prises de courant' },
       { value: 'interrupteurs', label: 'Installation interrupteurs' },
-      { value: 'tableau', label: 'Connexion tableau électrique' }
+      { value: 'tableau', label: 'Connexion tableau électrique' },
+      { value: 'prise_tv', label: 'Installation prise TV' },
+      { value: 'prise_telephone', label: 'Installation prise téléphone' },
+      { value: 'prise_internet', label: 'Installation prise internet RJ45' }
     ],
     exterieur: [
       { value: 'eclairage', label: 'Installation éclairage extérieur' },
@@ -177,7 +200,10 @@ export const servicesByRoom = {
       { value: 'interrupteurs', label: 'Installation interrupteurs extérieurs' },
       { value: 'tableau', label: 'Connexion tableau électrique' },
       { value: 'portail', label: 'Installation portail électrique' },
-      { value: 'volet', label: 'Installation volets roulants' }
+     
+      { value: 'prise_tv', label: 'Installation prise TV' },
+      { value: 'prise_telephone', label: 'Installation prise téléphone' },
+      { value: 'prise_internet', label: 'Installation prise internet RJ45' }
     ]
   }
 };
