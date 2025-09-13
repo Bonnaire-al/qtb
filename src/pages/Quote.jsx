@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import Form from '../components/QuoteForm';
-import ModalQuote from '../components/QuoteFonction(pdf)';
+import Form from '../components/Form/Form';
+import ModalQuote from '../components/modal/ModalQuote';
 
 const SERVICES = [
   { key: 'domotique', label: 'Domotique', icon: '🏠' },

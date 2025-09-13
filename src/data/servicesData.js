@@ -29,7 +29,6 @@ export const servicesByRoom = {
       { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
       { value: 'prises', label: 'Prises de courant connectées/commandées' },
       { value: 'chauffage', label: 'Chauffage connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
       { value: 'internet', label: 'Prise internet' },
       { value: 'tv', label: 'Prise TV' }
     ],
@@ -37,7 +36,6 @@ export const servicesByRoom = {
       { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
       { value: 'prises', label: 'Prises de courant connectées/commandées' },
       { value: 'chauffage', label: 'Chauffage connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
       { value: 'internet', label: 'Prise internet' },
       { value: 'tv', label: 'Prise TV' }
     ],
@@ -45,7 +43,6 @@ export const servicesByRoom = {
       { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
       { value: 'prises', label: 'Prises de courant connectées/commandées' },
       { value: 'chauffage', label: 'Chauffage connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
       { value: 'internet', label: 'Prise internet' },
       { value: 'tv', label: 'Prise TV' },
       { value: 'plaque_cuisson', label: 'Plaque cuisson connectée' },
@@ -57,7 +54,6 @@ export const servicesByRoom = {
       { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
       { value: 'prises', label: 'Prises de courant connectées/commandées' },
       { value: 'chauffage', label: 'sèche serviette connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
       { value: 'applique_miroir', label: 'Applique/miroir connecté' }
     ],
     toilette: [
@@ -69,7 +65,6 @@ export const servicesByRoom = {
       { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
       { value: 'prises', label: 'Prises de courant connectées/commandées' },
       { value: 'chauffage', label: 'Chauffage connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
       { value: 'internet', label: 'Prise internet' },
       { value: 'tv', label: 'Prise TV' }
     ],
@@ -77,7 +72,6 @@ export const servicesByRoom = {
       { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
       { value: 'prises', label: 'Prises de courant connectées/commandées' },
       { value: 'chauffage', label: 'Chauffage connecté/centralisé' },
-      { value: 'volets', label: 'Volets roulants connectés' },
       { value: 'internet', label: 'Prise internet' },
       { value: 'tv', label: 'Prise TV' },
       { value: 'lave_linge_vaisselle', label: 'Lave linge/vaisselle connecté' }
@@ -90,10 +84,7 @@ export const servicesByRoom = {
     exterieur: [
       { value: 'eclairage', label: 'Éclairage connecté/détecteur' },
       { value: 'prises', label: 'Prise connectée/commandée' },
-      { value: 'interphone', label: 'Interphone connecté' },
-      { value: 'alarme_securite', label: 'Alarme sécurité connectée' },
-      { value: 'camera', label: 'Caméra connectée' },
-      { value: 'portail', label: 'Portail connecté' },
+      { value: 'interphone', label: 'Interphone connecté' }
     ]
   },
   installation: {
@@ -169,7 +160,17 @@ export const servicesByRoom = {
       { value: 'prises', label: 'Installation prises de courant' },
       { value: 'interrupteurs', label: 'Installation interrupteurs' },
       { value: 'tableau', label: 'Connexion tableau électrique' },
-      { value: 'portail', label: 'Installation portail électrique' },
+      { value: 'prise_tv', label: 'Installation prise TV' },
+      { value: 'prise_telephone', label: 'Installation prise téléphone' },
+      { value: 'prise_internet', label: 'Installation prise internet RJ45' }
+    ],
+    cellier: [
+      { value: 'eclairage', label: 'Installation éclairage' },
+      { value: 'prises', label: 'Installation prises de courant' },
+      { value: 'interrupteurs', label: 'Installation interrupteurs' },
+      { value: 'tableau', label: 'Connexion tableau électrique' },
+      { value: 'lave_linge', label: 'Installation lave-linge' },
+      { value: 'vaisselle', label: 'Installation lave-vaisselle' },
       { value: 'prise_tv', label: 'Installation prise TV' },
       { value: 'prise_telephone', label: 'Installation prise téléphone' },
       { value: 'prise_internet', label: 'Installation prise internet RJ45' }
@@ -199,8 +200,6 @@ export const servicesByRoom = {
       { value: 'prises', label: 'Installation prises extérieures' },
       { value: 'interrupteurs', label: 'Installation interrupteurs extérieurs' },
       { value: 'tableau', label: 'Connexion tableau électrique' },
-      { value: 'portail', label: 'Installation portail électrique' },
-     
       { value: 'prise_tv', label: 'Installation prise TV' },
       { value: 'prise_telephone', label: 'Installation prise téléphone' },
       { value: 'prise_internet', label: 'Installation prise internet RJ45' }
@@ -208,51 +207,39 @@ export const servicesByRoom = {
   }
 };
 
-// Services spécifiques pour portail et sécurité (sans pièces)
-export const specificServices = {
+// Catégories pour portail et volet
+export const portailCategories = [
+  { value: 'portail', label: 'Portail électrique' },
+  { value: 'volet', label: 'Volet roulant' }
+];
+
+// Services par catégorie pour portail
+export const servicesByPortailCategory = {
   portail: [
     { value: 'portail_coulissant', label: 'Portail coulissant' },
     { value: 'portail_battant', label: 'Portail battant' },
-    { value: 'portail_sectionnel', label: 'Portail sectionnel' },
-    { value: 'portail_basculant', label: 'Portail basculant' },
-    { value: 'volet_roulant_exterieur', label: 'Volet roulant extérieur' },
-    { value: 'volet_roulant_interieur', label: 'Volet roulant intérieur' },
-    { value: 'volet_roulant_solaire', label: 'Volet roulant solaire' },
-    { value: 'volet_roulant_thermique', label: 'Volet roulant thermique' },
-    { value: 'porte_garage_sectionnelle', label: 'Porte de garage sectionnelle' },
-    { value: 'porte_garage_basculante', label: 'Porte de garage basculante' },
-    { value: 'porte_garage_enroulable', label: 'Porte de garage enroulable' },
-    { value: 'motorisation_chaine', label: 'Motorisation à chaîne' },
-    { value: 'motorisation_vis', label: 'Motorisation à vis' },
-    { value: 'motorisation_cremaillere', label: 'Motorisation à crémaillère' },
-    { value: 'telecommande_radio', label: 'Télécommande radio' },
-    { value: 'telecommande_filaire', label: 'Télécommande filaire' },
-    { value: 'detecteur_obstacle', label: 'Détecteur d\'obstacle' },
-    { value: 'detecteur_photocellule', label: 'Photocellule de sécurité' },
-    { value: 'centrale_commande', label: 'Centrale de commande' },
-    { value: 'batterie_secours', label: 'Batterie de secours' },
-    { value: 'installation_electrique', label: 'Installation électrique' },
-    { value: 'maintenance_preventive', label: 'Maintenance préventive' }
+    { value: 'portail_battant_connecte', label: 'Portail battant connecté' },
+    { value: 'portail_coulissant_connecte', label: 'Portail coulissant connecté' }
   ],
+  volet: [
+    { value: 'volet_roulant_petit', label: 'Volet roulant (petit - 1m sur 1m)' },
+    { value: 'volet_roulant_moyen', label: 'Volet roulant (moyen - 2m sur 2m)' },
+    { value: 'volet_roulant_grand', label: 'Volet roulant (grand - 3m sur 3m)' },
+    { value: 'volet_roulant_extra', label: 'Volet roulant (extra - plus de 3m)' }
+  ]
+};
+
+// Services spécifiques pour sécurité (sans pièces)
+export const specificServices = {
   securite: [
     { value: 'alarme_intrusion', label: 'Alarme d\'intrusion' },
     { value: 'alarme_incendie', label: 'Alarme incendie' },
     { value: 'alarme_gaz', label: 'Détecteur de gaz' },
     { value: 'camera_exterieur', label: 'Caméras extérieures' },
     { value: 'camera_interieur', label: 'Caméras intérieures' },
-    { value: 'camera_dome', label: 'Caméras dôme' },
-    { value: 'camera_ptz', label: 'Caméras PTZ' },
     { value: 'interphone_video', label: 'Interphone vidéo' },
     { value: 'controle_acces', label: 'Contrôle d\'accès' },
-    { value: 'badge_rfid', label: 'Badges RFID' },
-    { value: 'serrure_connectee', label: 'Serrure connectée' },
-    { value: 'detecteur_mouvement', label: 'Détecteurs de mouvement' },
-    { value: 'detecteur_ouverture', label: 'Détecteurs d\'ouverture' },
-    { value: 'centrale_alarme', label: 'Centrale d\'alarme' },
-    { value: 'clavier_code', label: 'Clavier à code' },
-    { value: 'telecommande', label: 'Télécommande' },
-    { value: 'sirene', label: 'Sirène' },
-    { value: 'transmetteur_telephonique', label: 'Transmetteur téléphonique' }
+    { value: 'serrure_connectee', label: 'Serrure connectée' }
   ]
 };
 

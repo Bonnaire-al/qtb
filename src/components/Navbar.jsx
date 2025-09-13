@@ -190,7 +190,7 @@ const Navbar = () => {
               onClick={closeMenu}
             >
               <i className="fas fa-bolt text-yellow-300 mr-3"></i>
-              Urgence: 01 23 45 67 89
+             0777117178
             </a>
           </div>
         </div>
