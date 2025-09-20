@@ -62,6 +62,24 @@ const pdfStyles = {
     background: '#dbeafe',
     alignment: 'right'
   },
+  discountRow: {
+    fontSize: 9,
+    color: '#059669',
+    alignment: 'right',
+    background: '#ecfdf5'
+  },
+  discountMessage: {
+    fontSize: 14,
+    color: '#059669',
+    bold: true,
+    background: '#ecfdf5',
+    margin: [10, 10, 10, 10]
+  },
+  discountDescription: {
+    fontSize: 10,
+    color: '#059669',
+    italic: true
+  },
   conditionText: {
     fontSize: 9,
     color: '#6b7280',
@@ -87,9 +105,10 @@ export const configurePdfMakeFonts = async (pdfMake, pdfFonts) => {
 // Fonction pour créer la définition du document PDF
 export const createPdfDocument = (formData, devisItems) => {
   const serviceType = formData?.service || 'domotique';
-  const totals = calculateTotals(devisItems, serviceType);
+  const isCompany = formData?.company && formData.company.trim() !== ''; // Vérifier si le champ entreprise est rempli
+  const totals = calculateTotals(devisItems, serviceType, isCompany);
   const allMaterials = collectAllMaterials(devisItems, serviceType);
-  const mainOeuvreRows = createMainOeuvreRows(devisItems);
+  const mainOeuvreRows = createMainOeuvreRows(devisItems, isCompany);
   const materielRows = createMaterielRows(allMaterials);
 
   return {
@@ -179,7 +198,11 @@ export const createPdfDocument = (formData, devisItems) => {
               ...(formData?.company ? [{
                 text: `Entreprise : ${formData.company}`,
                 style: 'infoText'
-              }] : [])
+              }] : []),
+              {
+                text: isCompany ? 'TVA 20% (Entreprise)' : 'TVA 10% (Particulier)',
+                style: 'infoText'
+              }
             ]
           }
         ],
@@ -252,6 +275,38 @@ export const createPdfDocument = (formData, devisItems) => {
         margin: [0, 0, 0, 20]
       },
 
+      // Remise si applicable
+      ...(totals.hasDiscount ? [{
+        columns: [
+          {
+            width: '*',
+            text: ''
+          },
+          {
+            width: 'auto',
+            table: {
+              widths: ['auto', 'auto'],
+              body: [
+                [
+                  { text: 'Main d\'œuvre HT :', style: 'totalRow' },
+                  { text: `${totals.totalMainOeuvreHT.toFixed(2)} €`, style: 'totalRow' }
+                ],
+                [
+                  { text: `Remise (${totals.discountPercentage}%) :`, style: 'discountRow' },
+                  { text: `-${totals.discountAmount.toFixed(2)} €`, style: 'discountRow' }
+                ],
+                [
+                  { text: 'Main d\'œuvre après remise :', style: 'totalRow' },
+                  { text: `${totals.totalMainOeuvreHTAfterDiscount.toFixed(2)} €`, style: 'totalRow' }
+                ]
+              ]
+            },
+            layout: 'lightHorizontalLines'
+          }
+        ],
+        margin: [0, 0, 0, 20]
+      }] : []),
+
       // Total général
       {
         columns: [
@@ -269,7 +324,7 @@ export const createPdfDocument = (formData, devisItems) => {
                   { text: totals.totalHT > 0 ? `${totals.totalHT.toFixed(2)} €` : 'À définir', style: 'totalRow' }
                 ],
                 [
-                  { text: 'TVA (20%) :', style: 'totalRow' },
+                  { text: `TVA (${(totals.tvaRate * 100).toFixed(0)}%) :`, style: 'totalRow' },
                   { text: totals.totalTVA > 0 ? `${totals.totalTVA.toFixed(2)} €` : 'À définir', style: 'totalRow' }
                 ],
                 [
@@ -283,6 +338,19 @@ export const createPdfDocument = (formData, devisItems) => {
         ],
         margin: [0, 0, 0, 20]
       },
+
+      // Message de remise si applicable
+      ...(totals.hasDiscount ? [{
+        text: `🎉 Remise automatique appliquée !`,
+        style: 'discountMessage',
+        alignment: 'center',
+        margin: [0, 20, 0, 10]
+      }, {
+        text: `Vous bénéficiez d'une remise de ${totals.discountPercentage}% sur la main d'œuvre grâce à votre commande de plus de ${Math.floor(totals.totalMainOeuvreHT / 1000) * 1000}€.`,
+        style: 'discountDescription',
+        alignment: 'center',
+        margin: [0, 0, 0, 20]
+      }] : []),
 
       // Conditions
       {
@@ -335,7 +403,7 @@ export const generatePDF = async (formData, devisItems) => {
     const pdfDoc = pdfMake.createPdf(docDefinition);
     
     // Retourner une promesse qui résout avec les données PDF
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       pdfDoc.getBase64((data) => {
         const pdfBase64 = `data:application/pdf;base64,${data}`;
         resolve(pdfBase64);

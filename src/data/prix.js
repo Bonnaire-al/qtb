@@ -2,124 +2,80 @@
 
 export const prixPrestations = {
   domotique: {
-    chambre: {
-      eclairage: { prixHT: 45.00, description: "Éclairage connecté/détecteur" },
-      prises: { prixHT: 35.00, description: "Prises de courant connectées/commandées" },
-      chauffage: { prixHT: 120.00, description: "Chauffage connecté/centralisé" },
+    // Services communs à toutes les pièces
+    commun: {
+      eclairage: { prixHT: 20.00, description: "Éclairage connecté/détecteur" },
+      prises: { prixHT: 30.00, description: "Prises de courant connectées/commandées" },
+      radiateur: { prixHT: 35.00, description: "Radiateur connecté/centralisé" },
       volets: { prixHT: 85.00, description: "Volets roulants connectés" },
-      internet: { prixHT: 25.00, description: "Prise internet" },
-      tv: { prixHT: 30.00, description: "Prise TV" }
+      internet: { prixHT: 20.00, description: "Prise internet" },
+      tv: { prixHT: 20.00, description: "Prise TV" },
+      tableau: { prixHT: 250.00, description: "Installation tableau électrique" }
     },
-    salon: {
-      eclairage: { prixHT: 45.00, description: "Éclairage connecté/détecteur" },
-      prises: { prixHT: 35.00, description: "Prises de courant connectées/commandées" },
-      chauffage: { prixHT: 120.00, description: "Chauffage connecté/centralisé" },
-      volets: { prixHT: 85.00, description: "Volets roulants connectés" },
-      internet: { prixHT: 25.00, description: "Prise internet" },
-      tv: { prixHT: 30.00, description: "Prise TV" }
-    },
+    // Services spécifiques par pièce
     cuisine: {
-      eclairage: { prixHT: 45.00, description: "Éclairage connecté/détecteur" },
-      prises: { prixHT: 35.00, description: "Prises de courant connectées/commandées" },
-      chauffage: { prixHT: 120.00, description: "Chauffage connecté/centralisé" },
-      volets: { prixHT: 85.00, description: "Volets roulants connectés" },
-      internet: { prixHT: 25.00, description: "Prise internet" },
-      tv: { prixHT: 30.00, description: "Prise TV" },
-      plaque_cuisson: { prixHT: 150.00, description: "Plaque cuisson connectée" },
-      four: { prixHT: 80.00, description: "Four connecté" },
-      lave_linge_vaisselle: { prixHT: 100.00, description: "Lave linge/vaisselle connecté" },
-      applique: { prixHT: 40.00, description: "Applique connectée" }
+      plaque_cuisson: { prixHT: 30.00, description: "Plaque cuisson connectée" },
+      four: { prixHT: 30.00, description: "Four connecté" },
+      lave_linge_vaisselle: { prixHT: 40.00, description: "Lave linge/vaisselle connecté" },
+      applique: { prixHT: 20.00, description: "Applique connectée" }
     },
     salle_de_bain: {
-      eclairage: { prixHT: 45.00, description: "Éclairage connecté/détecteur" },
-      prises: { prixHT: 35.00, description: "Prises de courant connectées/commandées" },
-      chauffage: { prixHT: 100.00, description: "sèche serviette connecté/centralisé" },
-      volets: { prixHT: 85.00, description: "Volets roulants connectés" },
-      applique_miroir: { prixHT: 60.00, description: "Applique/miroir connecté" }
+      radiateur: { prixHT: 35.00, description: "sèche serviette connecté/centralisé" },
+      applique_miroir: { prixHT: 20.00, description: "Applique/miroir connecté" }
     },
     toilette: {
-      eclairage: { prixHT: 35.00, description: "Éclairage connecté/détecteur" },
-      prises: { prixHT: 25.00, description: "Prise connectée/détecteur" },
-      applique_miroir: { prixHT: 50.00, description: "Applique/miroir connecté" }
+      applique_miroir: { prixHT: 20.00, description: "Applique/miroir connecté" }
     },
     couloir: {
-      eclairage: { prixHT: 40.00, description: "Éclairage connecté/détecteur" },
-      prises: { prixHT: 30.00, description: "Prises de courant connectées/commandées" },
-      chauffage: { prixHT: 100.00, description: "Chauffage connecté/centralisé" },
-      volets: { prixHT: 85.00, description: "Volets roulants connectés" },
-      internet: { prixHT: 25.00, description: "Prise internet" },
-      tv: { prixHT: 30.00, description: "Prise TV" }
+      // Aucun prix spécifique - utilise les prix communs
     },
     cellier: {
-      eclairage: { prixHT: 35.00, description: "Éclairage connecté/détecteur" },
-      prises: { prixHT: 30.00, description: "Prises de courant connectées/commandées" },
-      chauffage: { prixHT: 100.00, description: "Chauffage connecté/centralisé" },
-      volets: { prixHT: 85.00, description: "Volets roulants connectés" },
-      internet: { prixHT: 25.00, description: "Prise internet" },
-      tv: { prixHT: 30.00, description: "Prise TV" },
-      lave_linge_vaisselle: { prixHT: 100.00, description: "Lave linge/vaisselle connecté" }
+      lave_linge_vaisselle: { prixHT: 40.00, description: "Lave linge/vaisselle connecté" }
     },
     cave: {
       eclairage: { prixHT: 30.00, description: "Éclairage connecté/détecteur" },
       prises: { prixHT: 25.00, description: "Prises de courant connectées/commandées" },
-      lave_linge_seche_linge: { prixHT: 120.00, description: "Lave-linge/sèche-linge connecté" }
+      lave_linge_seche_linge: { prixHT: 40.00, description: "Lave-linge/sèche-linge connecté" }
     },
     exterieur: {
-      eclairage: { prixHT: 60.00, description: "Éclairage connecté/détecteur" },
-      prises: { prixHT: 40.00, description: "Prise connectée/commandée" },
-      interphone: { prixHT: 200.00, description: "Interphone connecté" },
-      alarme_securite: { prixHT: 300.00, description: "Alarme sécurité connectée" },
-      camera: { prixHT: 150.00, description: "Caméra connectée" },
-      portail: { prixHT: 250.00, description: "Portail connecté" }
+      eclairage: { prixHT: 35.00, description: "Éclairage connecté/détecteur" },
+      prises: { prixHT: 45.00, description: "Prise connectée/commandée" },
+      interphone: { prixHT: 70.00, description: "Interphone connecté" },
+      alarme_securite: { prixHT: 150.00, description: "Alarme sécurité connectée" },
+      camera: { prixHT: 35.00, description: "Caméra connectée" },
+      portail: { prixHT: 130.00, description: "Portail connecté" }
     }
   },
   installation: {
-    chambre: {
-      eclairage: { prixHT: 35.00, description: "Installation éclairage" },
-      prises: { prixHT: 25.00, description: "Installation prises de courant" },
-      interrupteurs: { prixHT: 20.00, description: "Installation interrupteurs" },
-      tableau: { prixHT: 50.00, description: "Connexion tableau électrique" },
-      detecteur: { prixHT: 40.00, description: "Installation détecteur de fumée" }
-    },
-    salon: {
+    // Services communs à toutes les pièces
+    commun: {
       eclairage: { prixHT: 35.00, description: "Installation éclairage" },
       prises: { prixHT: 25.00, description: "Installation prises de courant" },
       interrupteurs: { prixHT: 20.00, description: "Installation interrupteurs" },
       tableau: { prixHT: 50.00, description: "Connexion tableau électrique" },
       detecteur: { prixHT: 40.00, description: "Installation détecteur de fumée" },
-      tv: { prixHT: 30.00, description: "Installation prises TV/Internet" }
+      tv: { prixHT: 30.00, description: "Installation prise TV" },
+      internet: { prixHT: 25.00, description: "Installation prise internet RJ45" },
+      radiateur: { prixHT: 60.00, description: "Installation radiateur" }
+    },
+    // Services spécifiques par pièce
+    salon: {
+      // Aucun prix spécifique - utilise les prix communs
     },
     cuisine: {
-      eclairage: { prixHT: 35.00, description: "Installation éclairage" },
-      prises: { prixHT: 25.00, description: "Installation prises de courant" },
-      interrupteurs: { prixHT: 20.00, description: "Installation interrupteurs" },
-      tableau: { prixHT: 50.00, description: "Connexion tableau électrique" },
-      detecteur: { prixHT: 40.00, description: "Installation détecteur de fumée" },
       plaque_cuisson: { prixHT: 80.00, description: "Installation plaque de cuisson" },
       four: { prixHT: 60.00, description: "Installation four électrique" },
       lave_linge: { prixHT: 50.00, description: "Installation lave-linge" },
       vaisselle: { prixHT: 50.00, description: "Installation lave-vaisselle" }
     },
     salle_de_bain: {
-      eclairage: { prixHT: 35.00, description: "Installation éclairage" },
-      prises: { prixHT: 25.00, description: "Installation prises de courant" },
-      interrupteurs: { prixHT: 20.00, description: "Installation interrupteurs" },
-      tableau: { prixHT: 50.00, description: "Connexion tableau électrique" },
-      detecteur: { prixHT: 40.00, description: "Installation détecteur de fumée" },
       seche_serviette: { prixHT: 70.00, description: "Installation sèche-serviette" },
       chauffe_eau: { prixHT: 80.00, description: "Installation chauffe-eau" }
     },
     toilette: {
-      eclairage: { prixHT: 30.00, description: "Installation éclairage" },
-      prises: { prixHT: 20.00, description: "Installation prises de courant" },
-      interrupteurs: { prixHT: 15.00, description: "Installation interrupteurs" },
-      tableau: { prixHT: 40.00, description: "Connexion tableau électrique" }
+      // Aucun prix spécifique - utilise les prix communs
     },
     couloir: {
-      eclairage: { prixHT: 30.00, description: "Installation éclairage" },
-      prises: { prixHT: 20.00, description: "Installation prises de courant" },
-      interrupteurs: { prixHT: 15.00, description: "Installation interrupteurs" },
-      tableau: { prixHT: 40.00, description: "Connexion tableau électrique" },
       detecteur: { prixHT: 35.00, description: "Installation détecteur de fumée" }
     },
     garage: {
@@ -152,6 +108,28 @@ export const prixPrestations = {
       volet: { prixHT: 80.00, description: "Installation volets roulants" }
     }
   },
+  appareillage: {
+    // Services communs à toutes les pièces (sauf extérieur)
+    commun: {
+      changement_prise: { prixHT: 25.00, description: "Changement de prise" },
+      changement_luminaire: { prixHT: 30.00, description: "Changement de luminaire" },
+      changement_alarme: { prixHT: 40.00, description: "Changement d'alarme" },
+      changement_tableau: { prixHT: 60.00, description: "Changement de tableau" },
+      changement_interrupteur: { prixHT: 20.00, description: "Changement d'interrupteur" },
+      changement_poussoir: { prixHT: 25.00, description: "Changement de poussoir" },
+      changement_interphone: { prixHT: 80.00, description: "Changement d'interphone" }
+    },
+    // Services spécifiques pour l'extérieur
+    exterieur: {
+      changement_prise: { prixHT: 35.00, description: "Changement de prise extérieure" },
+      changement_luminaire: { prixHT: 40.00, description: "Changement de luminaire extérieur" },
+      changement_alarme: { prixHT: 50.00, description: "Changement d'alarme extérieure" },
+      changement_tableau: { prixHT: 60.00, description: "Changement de tableau" },
+      changement_interrupteur: { prixHT: 30.00, description: "Changement d'interrupteur extérieur" },
+      changement_poussoir: { prixHT: 35.00, description: "Changement de poussoir extérieur" },
+      changement_interphone: { prixHT: 100.00, description: "Changement d'interphone extérieur" }
+    }
+  },
   portail: {
     portail_coulissant: { prixHT: 300.00, description: "Portail coulissant" },
     portail_battant: { prixHT: 250.00, description: "Portail battant" },
@@ -182,18 +160,11 @@ export const prixPrestations = {
     alarme_gaz: { prixHT: 120.00, description: "Détecteur de gaz" },
     camera_exterieur: { prixHT: 180.00, description: "Caméras extérieures" },
     camera_interieur: { prixHT: 150.00, description: "Caméras intérieures" },
-    camera_dome: { prixHT: 200.00, description: "Caméras dôme" },
-    camera_ptz: { prixHT: 300.00, description: "Caméras PTZ" },
-    interphone_video: { prixHT: 250.00, description: "Interphone vidéo" },
     controle_acces: { prixHT: 180.00, description: "Contrôle d'accès" },
-    badge_rfid: { prixHT: 50.00, description: "Badges RFID" },
     serrure_connectee: { prixHT: 120.00, description: "Serrure connectée" },
-    detecteur_mouvement: { prixHT: 60.00, description: "Détecteurs de mouvement" },
-    detecteur_ouverture: { prixHT: 40.00, description: "Détecteurs d'ouverture" },
-    centrale_alarme: { prixHT: 150.00, description: "Centrale d'alarme" },
-    clavier_code: { prixHT: 80.00, description: "Clavier à code" },
-    telecommande: { prixHT: 30.00, description: "Télécommande" },
-    sirene: { prixHT: 100.00, description: "Sirène" },
-    transmetteur_telephonique: { prixHT: 90.00, description: "Transmetteur téléphonique" }
+    gash_electrique: { prixHT: 80.00, description: "Gash électrique" },
+    interphone: { prixHT: 120.00, description: "Interphone" },
+    interphone_video: { prixHT: 250.00, description: "Interphone vidéo" },
+    interphone_gash_electrique: { prixHT: 180.00, description: "Interphone + Gash électrique" }
   }
 };

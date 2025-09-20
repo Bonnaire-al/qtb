@@ -2,7 +2,8 @@
 
 export const materielPrestations = {
   domotique: {
-    chambre: {
+    // Matériel commun à toutes les pièces
+    commun: {
       eclairage: [
         { nom: "Interrupteur connecté", quantite: 1, prixHT: 25.00 },
         { nom: "Ampoule LED connectée", quantite: 2, prixHT: 15.00 },
@@ -27,61 +28,15 @@ export const materielPrestations = {
       tv: [
         { nom: "Prise TV", quantite: 1, prixHT: 20.00 },
         { nom: "Câble coaxial", quantite: 3, prixHT: 3.00 }
+      ],
+      tableau: [
+        { nom: "Tableau électrique connecté", quantite: 1, prixHT: 60.00 },
+        { nom: "Disjoncteurs connectés", quantite: 4, prixHT: 15.00 },
+        { nom: "Module de commande", quantite: 1, prixHT: 20.00 }
       ]
     },
-    salon: {
-      eclairage: [
-        { nom: "Interrupteur connecté", quantite: 2, prixHT: 25.00 },
-        { nom: "Ampoule LED connectée", quantite: 4, prixHT: 15.00 },
-        { nom: "Détecteur de présence", quantite: 1, prixHT: 35.00 }
-      ],
-      prises: [
-        { nom: "Prise connectée", quantite: 3, prixHT: 20.00 },
-        { nom: "Module de commande", quantite: 1, prixHT: 30.00 }
-      ],
-      chauffage: [
-        { nom: "Thermostat connecté", quantite: 1, prixHT: 80.00 },
-        { nom: "Vanne motorisée", quantite: 1, prixHT: 45.00 }
-      ],
-      volets: [
-        { nom: "Moteur volet roulant", quantite: 2, prixHT: 60.00 },
-        { nom: "Télécommande", quantite: 1, prixHT: 25.00 }
-      ],
-      internet: [
-        { nom: "Prise RJ45", quantite: 2, prixHT: 15.00 },
-        { nom: "Câble réseau", quantite: 8, prixHT: 2.00 }
-      ],
-      tv: [
-        { nom: "Prise TV", quantite: 2, prixHT: 20.00 },
-        { nom: "Câble coaxial", quantite: 5, prixHT: 3.00 }
-      ]
-    },
+    // Matériel spécifique par pièce
     cuisine: {
-      eclairage: [
-        { nom: "Interrupteur connecté", quantite: 1, prixHT: 25.00 },
-        { nom: "Ampoule LED connectée", quantite: 3, prixHT: 15.00 },
-        { nom: "Détecteur de présence", quantite: 1, prixHT: 35.00 }
-      ],
-      prises: [
-        { nom: "Prise connectée", quantite: 4, prixHT: 20.00 },
-        { nom: "Module de commande", quantite: 1, prixHT: 30.00 }
-      ],
-      chauffage: [
-        { nom: "Thermostat connecté", quantite: 1, prixHT: 80.00 },
-        { nom: "Vanne motorisée", quantite: 1, prixHT: 45.00 }
-      ],
-      volets: [
-        { nom: "Moteur volet roulant", quantite: 1, prixHT: 60.00 },
-        { nom: "Télécommande", quantite: 1, prixHT: 25.00 }
-      ],
-      internet: [
-        { nom: "Prise RJ45", quantite: 1, prixHT: 15.00 },
-        { nom: "Câble réseau", quantite: 5, prixHT: 2.00 }
-      ],
-      tv: [
-        { nom: "Prise TV", quantite: 1, prixHT: 20.00 },
-        { nom: "Câble coaxial", quantite: 3, prixHT: 3.00 }
-      ],
       plaque_cuisson: [
         { nom: "Plaque de cuisson connectée", quantite: 1, prixHT: 120.00 },
         { nom: "Module de commande", quantite: 1, prixHT: 30.00 }
@@ -100,22 +55,9 @@ export const materielPrestations = {
       ]
     },
     salle_de_bain: {
-      eclairage: [
-        { nom: "Interrupteur connecté", quantite: 1, prixHT: 25.00 },
-        { nom: "Ampoule LED connectée", quantite: 2, prixHT: 15.00 },
-        { nom: "Détecteur de présence", quantite: 1, prixHT: 35.00 }
-      ],
-      prises: [
-        { nom: "Prise connectée", quantite: 2, prixHT: 20.00 },
-        { nom: "Module de commande", quantite: 1, prixHT: 30.00 }
-      ],
       chauffage: [
         { nom: "Sèche-serviette connecté", quantite: 1, prixHT: 80.00 },
         { nom: "Module de commande", quantite: 1, prixHT: 20.00 }
-      ],
-      volets: [
-        { nom: "Moteur volet roulant", quantite: 1, prixHT: 60.00 },
-        { nom: "Télécommande", quantite: 1, prixHT: 25.00 }
       ],
       applique_miroir: [
         { nom: "Applique miroir connectée", quantite: 1, prixHT: 50.00 },
@@ -123,68 +65,15 @@ export const materielPrestations = {
       ]
     },
     toilette: {
-      eclairage: [
-        { nom: "Interrupteur connecté", quantite: 1, prixHT: 25.00 },
-        { nom: "Ampoule LED connectée", quantite: 1, prixHT: 15.00 }
-      ],
-      prises: [
-        { nom: "Prise connectée", quantite: 1, prixHT: 20.00 }
-      ],
       applique_miroir: [
         { nom: "Applique miroir connectée", quantite: 1, prixHT: 40.00 },
         { nom: "Ampoule LED", quantite: 1, prixHT: 10.00 }
       ]
     },
     couloir: {
-      eclairage: [
-        { nom: "Interrupteur connecté", quantite: 1, prixHT: 25.00 },
-        { nom: "Ampoule LED connectée", quantite: 2, prixHT: 15.00 },
-        { nom: "Détecteur de présence", quantite: 1, prixHT: 35.00 }
-      ],
-      prises: [
-        { nom: "Prise connectée", quantite: 2, prixHT: 20.00 }
-      ],
-      chauffage: [
-        { nom: "Thermostat connecté", quantite: 1, prixHT: 80.00 },
-        { nom: "Vanne motorisée", quantite: 1, prixHT: 45.00 }
-      ],
-      volets: [
-        { nom: "Moteur volet roulant", quantite: 1, prixHT: 60.00 },
-        { nom: "Télécommande", quantite: 1, prixHT: 25.00 }
-      ],
-      internet: [
-        { nom: "Prise RJ45", quantite: 1, prixHT: 15.00 },
-        { nom: "Câble réseau", quantite: 5, prixHT: 2.00 }
-      ],
-      tv: [
-        { nom: "Prise TV", quantite: 1, prixHT: 20.00 },
-        { nom: "Câble coaxial", quantite: 3, prixHT: 3.00 }
-      ]
+      // Aucun matériel spécifique - utilise le matériel commun
     },
     cellier: {
-      eclairage: [
-        { nom: "Interrupteur connecté", quantite: 1, prixHT: 25.00 },
-        { nom: "Ampoule LED connectée", quantite: 1, prixHT: 15.00 }
-      ],
-      prises: [
-        { nom: "Prise connectée", quantite: 2, prixHT: 20.00 }
-      ],
-      chauffage: [
-        { nom: "Thermostat connecté", quantite: 1, prixHT: 80.00 },
-        { nom: "Vanne motorisée", quantite: 1, prixHT: 45.00 }
-      ],
-      volets: [
-        { nom: "Moteur volet roulant", quantite: 1, prixHT: 60.00 },
-        { nom: "Télécommande", quantite: 1, prixHT: 25.00 }
-      ],
-      internet: [
-        { nom: "Prise RJ45", quantite: 1, prixHT: 15.00 },
-        { nom: "Câble réseau", quantite: 5, prixHT: 2.00 }
-      ],
-      tv: [
-        { nom: "Prise TV", quantite: 1, prixHT: 20.00 },
-        { nom: "Câble coaxial", quantite: 3, prixHT: 3.00 }
-      ],
       lave_linge_vaisselle: [
         { nom: "Lave-linge connecté", quantite: 1, prixHT: 80.00 },
         { nom: "Module de commande", quantite: 1, prixHT: 20.00 }
@@ -232,7 +121,8 @@ export const materielPrestations = {
     }
   },
   installation: {
-    chambre: {
+    // Matériel commun à toutes les pièces
+    commun: {
       eclairage: [
         { nom: "Interrupteur", quantite: 1, prixHT: 8.00 },
         { nom: "Ampoule LED", quantite: 2, prixHT: 12.00 },
@@ -254,53 +144,14 @@ export const materielPrestations = {
         { nom: "Détecteur de fumée", quantite: 1, prixHT: 25.00 }
       ]
     },
+    // Matériel spécifique par pièce
     salon: {
-      eclairage: [
-        { nom: "Interrupteur", quantite: 2, prixHT: 8.00 },
-        { nom: "Ampoule LED", quantite: 4, prixHT: 12.00 },
-        { nom: "Gaine électrique", quantite: 8, prixHT: 2.00 }
-      ],
-      prises: [
-        { nom: "Prise de courant", quantite: 5, prixHT: 6.00 },
-        { nom: "Boîte d'encastrement", quantite: 5, prixHT: 3.00 }
-      ],
-      interrupteurs: [
-        { nom: "Interrupteur", quantite: 3, prixHT: 8.00 },
-        { nom: "Boîte d'encastrement", quantite: 3, prixHT: 3.00 }
-      ],
-      tableau: [
-        { nom: "Disjoncteur", quantite: 4, prixHT: 15.00 },
-        { nom: "Câble électrique", quantite: 15, prixHT: 3.00 }
-      ],
-      detecteur: [
-        { nom: "Détecteur de fumée", quantite: 1, prixHT: 25.00 }
-      ],
       tv: [
         { nom: "Prise TV", quantite: 2, prixHT: 12.00 },
         { nom: "Câble coaxial", quantite: 5, prixHT: 3.00 }
       ]
     },
     cuisine: {
-      eclairage: [
-        { nom: "Interrupteur", quantite: 1, prixHT: 8.00 },
-        { nom: "Ampoule LED", quantite: 3, prixHT: 12.00 },
-        { nom: "Gaine électrique", quantite: 6, prixHT: 2.00 }
-      ],
-      prises: [
-        { nom: "Prise de courant", quantite: 6, prixHT: 6.00 },
-        { nom: "Boîte d'encastrement", quantite: 6, prixHT: 3.00 }
-      ],
-      interrupteurs: [
-        { nom: "Interrupteur", quantite: 2, prixHT: 8.00 },
-        { nom: "Boîte d'encastrement", quantite: 2, prixHT: 3.00 }
-      ],
-      tableau: [
-        { nom: "Disjoncteur", quantite: 5, prixHT: 15.00 },
-        { nom: "Câble électrique", quantite: 20, prixHT: 3.00 }
-      ],
-      detecteur: [
-        { nom: "Détecteur de fumée", quantite: 1, prixHT: 25.00 }
-      ],
       plaque_cuisson: [
         { nom: "Plaque de cuisson", quantite: 1, prixHT: 60.00 },
         { nom: "Câble spécialisé", quantite: 3, prixHT: 8.00 }
@@ -319,26 +170,6 @@ export const materielPrestations = {
       ]
     },
     salle_de_bain: {
-      eclairage: [
-        { nom: "Interrupteur", quantite: 1, prixHT: 8.00 },
-        { nom: "Ampoule LED", quantite: 2, prixHT: 12.00 },
-        { nom: "Gaine électrique", quantite: 5, prixHT: 2.00 }
-      ],
-      prises: [
-        { nom: "Prise de courant", quantite: 2, prixHT: 6.00 },
-        { nom: "Boîte d'encastrement", quantite: 2, prixHT: 3.00 }
-      ],
-      interrupteurs: [
-        { nom: "Interrupteur", quantite: 1, prixHT: 8.00 },
-        { nom: "Boîte d'encastrement", quantite: 1, prixHT: 3.00 }
-      ],
-      tableau: [
-        { nom: "Disjoncteur", quantite: 3, prixHT: 15.00 },
-        { nom: "Câble électrique", quantite: 10, prixHT: 3.00 }
-      ],
-      detecteur: [
-        { nom: "Détecteur de fumée", quantite: 1, prixHT: 25.00 }
-      ],
       seche_serviette: [
         { nom: "Sèche-serviette", quantite: 1, prixHT: 50.00 },
         { nom: "Câble spécialisé", quantite: 2, prixHT: 8.00 }
@@ -349,42 +180,9 @@ export const materielPrestations = {
       ]
     },
     toilette: {
-      eclairage: [
-        { nom: "Interrupteur", quantite: 1, prixHT: 8.00 },
-        { nom: "Ampoule LED", quantite: 1, prixHT: 12.00 },
-        { nom: "Gaine électrique", quantite: 3, prixHT: 2.00 }
-      ],
-      prises: [
-        { nom: "Prise de courant", quantite: 1, prixHT: 6.00 },
-        { nom: "Boîte d'encastrement", quantite: 1, prixHT: 3.00 }
-      ],
-      interrupteurs: [
-        { nom: "Interrupteur", quantite: 1, prixHT: 8.00 },
-        { nom: "Boîte d'encastrement", quantite: 1, prixHT: 3.00 }
-      ],
-      tableau: [
-        { nom: "Disjoncteur", quantite: 2, prixHT: 15.00 },
-        { nom: "Câble électrique", quantite: 5, prixHT: 3.00 }
-      ]
+      // Aucun matériel spécifique - utilise le matériel commun
     },
     couloir: {
-      eclairage: [
-        { nom: "Interrupteur", quantite: 1, prixHT: 8.00 },
-        { nom: "Ampoule LED", quantite: 2, prixHT: 12.00 },
-        { nom: "Gaine électrique", quantite: 5, prixHT: 2.00 }
-      ],
-      prises: [
-        { nom: "Prise de courant", quantite: 2, prixHT: 6.00 },
-        { nom: "Boîte d'encastrement", quantite: 2, prixHT: 3.00 }
-      ],
-      interrupteurs: [
-        { nom: "Interrupteur", quantite: 1, prixHT: 8.00 },
-        { nom: "Boîte d'encastrement", quantite: 1, prixHT: 3.00 }
-      ],
-      tableau: [
-        { nom: "Disjoncteur", quantite: 3, prixHT: 15.00 },
-        { nom: "Câble électrique", quantite: 8, prixHT: 3.00 }
-      ],
       detecteur: [
         { nom: "Détecteur de fumée", quantite: 1, prixHT: 25.00 }
       ]
@@ -480,6 +278,70 @@ export const materielPrestations = {
       volet: [
         { nom: "Moteur volet roulant", quantite: 1, prixHT: 60.00 },
         { nom: "Télécommande", quantite: 1, prixHT: 20.00 }
+      ]
+    }
+  },
+  appareillage: {
+    // Services communs à toutes les pièces (sauf extérieur)
+    commun: {
+      changement_prise: [
+        { nom: "Prise de courant", quantite: 1, prixHT: 8.00 },
+        { nom: "Boîte d'encastrement", quantite: 1, prixHT: 3.00 }
+      ],
+      changement_luminaire: [
+        { nom: "Luminaire", quantite: 1, prixHT: 20.00 },
+        { nom: "Ampoule LED", quantite: 1, prixHT: 10.00 }
+      ],
+      changement_alarme: [
+        { nom: "Alarme", quantite: 1, prixHT: 30.00 },
+        { nom: "Câble électrique", quantite: 2, prixHT: 3.00 }
+      ],
+      changement_tableau: [
+        { nom: "Tableau électrique", quantite: 1, prixHT: 50.00 },
+        { nom: "Disjoncteurs", quantite: 3, prixHT: 15.00 }
+      ],
+      changement_interrupteur: [
+        { nom: "Interrupteur", quantite: 1, prixHT: 8.00 },
+        { nom: "Boîte d'encastrement", quantite: 1, prixHT: 3.00 }
+      ],
+      changement_poussoir: [
+        { nom: "Poussoir", quantite: 1, prixHT: 12.00 },
+        { nom: "Boîte d'encastrement", quantite: 1, prixHT: 3.00 }
+      ],
+      changement_interphone: [
+        { nom: "Interphone", quantite: 1, prixHT: 60.00 },
+        { nom: "Câble téléphonique", quantite: 5, prixHT: 2.00 }
+      ]
+    },
+    // Services spécifiques pour l'extérieur
+    exterieur: {
+      changement_prise: [
+        { nom: "Prise extérieure", quantite: 1, prixHT: 15.00 },
+        { nom: "Boîte d'encastrement étanche", quantite: 1, prixHT: 8.00 }
+      ],
+      changement_luminaire: [
+        { nom: "Luminaire extérieur", quantite: 1, prixHT: 30.00 },
+        { nom: "Ampoule LED étanche", quantite: 1, prixHT: 12.00 }
+      ],
+      changement_alarme: [
+        { nom: "Alarme extérieure", quantite: 1, prixHT: 40.00 },
+        { nom: "Câble électrique étanche", quantite: 3, prixHT: 4.00 }
+      ],
+      changement_tableau: [
+        { nom: "Tableau électrique", quantite: 1, prixHT: 50.00 },
+        { nom: "Disjoncteurs", quantite: 3, prixHT: 15.00 }
+      ],
+      changement_interrupteur: [
+        { nom: "Interrupteur extérieur", quantite: 1, prixHT: 15.00 },
+        { nom: "Boîte d'encastrement étanche", quantite: 1, prixHT: 8.00 }
+      ],
+      changement_poussoir: [
+        { nom: "Poussoir extérieur", quantite: 1, prixHT: 18.00 },
+        { nom: "Boîte d'encastrement étanche", quantite: 1, prixHT: 8.00 }
+      ],
+      changement_interphone: [
+        { nom: "Interphone extérieur", quantite: 1, prixHT: 80.00 },
+        { nom: "Câble téléphonique étanche", quantite: 5, prixHT: 3.00 }
       ]
     }
   },
@@ -590,49 +452,33 @@ export const materielPrestations = {
       { nom: "Caméra intérieure", quantite: 2, prixHT: 60.00 },
       { nom: "Câble vidéo", quantite: 8, prixHT: 3.00 }
     ],
-    camera_dome: [
-      { nom: "Caméra dôme", quantite: 2, prixHT: 100.00 },
-      { nom: "Câble vidéo", quantite: 10, prixHT: 3.00 }
-    ],
-    camera_ptz: [
-      { nom: "Caméra PTZ", quantite: 1, prixHT: 200.00 },
-      { nom: "Câble vidéo", quantite: 5, prixHT: 3.00 }
-    ],
-    interphone_video: [
-      { nom: "Interphone vidéo", quantite: 1, prixHT: 150.00 },
-      { nom: "Câble vidéo", quantite: 5, prixHT: 3.00 }
-    ],
     controle_acces: [
       { nom: "Contrôleur d'accès", quantite: 1, prixHT: 120.00 },
       { nom: "Lecteur de badge", quantite: 1, prixHT: 40.00 }
-    ],
-    badge_rfid: [
-      { nom: "Badges RFID", quantite: 5, prixHT: 8.00 }
     ],
     serrure_connectee: [
       { nom: "Serrure connectée", quantite: 1, prixHT: 80.00 },
       { nom: "Module de commande", quantite: 1, prixHT: 20.00 }
     ],
-    detecteur_mouvement: [
-      { nom: "Détecteurs de mouvement", quantite: 3, prixHT: 25.00 }
+    gash_electrique: [
+      { nom: "Gash électrique", quantite: 1, prixHT: 60.00 },
+      { nom: "Câble électrique", quantite: 5, prixHT: 3.00 },
+      { nom: "Boîte d'encastrement", quantite: 1, prixHT: 5.00 }
     ],
-    detecteur_ouverture: [
-      { nom: "Détecteurs d'ouverture", quantite: 4, prixHT: 15.00 }
+    interphone: [
+      { nom: "Interphone", quantite: 1, prixHT: 80.00 },
+      { nom: "Câble téléphonique", quantite: 10, prixHT: 2.00 },
+      { nom: "Boîte d'encastrement", quantite: 1, prixHT: 5.00 }
     ],
-    centrale_alarme: [
-      { nom: "Centrale d'alarme", quantite: 1, prixHT: 100.00 }
+    interphone_video: [
+      { nom: "Interphone vidéo", quantite: 1, prixHT: 150.00 },
+      { nom: "Câble vidéo", quantite: 5, prixHT: 3.00 }
     ],
-    clavier_code: [
-      { nom: "Clavier à code", quantite: 1, prixHT: 50.00 }
-    ],
-    telecommande: [
-      { nom: "Télécommande", quantite: 2, prixHT: 15.00 }
-    ],
-    sirene: [
-      { nom: "Sirène", quantite: 1, prixHT: 60.00 }
-    ],
-    transmetteur_telephonique: [
-      { nom: "Transmetteur téléphonique", quantite: 1, prixHT: 70.00 }
+    interphone_gash_electrique: [
+      { nom: "Interphone + Gash électrique", quantite: 1, prixHT: 120.00 },
+      { nom: "Câble électrique", quantite: 5, prixHT: 3.00 },
+      { nom: "Câble téléphonique", quantite: 10, prixHT: 2.00 },
+      { nom: "Boîte d'encastrement", quantite: 1, prixHT: 5.00 }
     ]
   }
 };

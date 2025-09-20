@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { roomsByService, servicesByRoom, specificServices, serviceConfig, portailCategories, servicesByPortailCategory } from '../../data/servicesData';
 import { prixPrestations } from '../../data/prix';
 
 export const useFormLogic = (serviceType) => {
-  // États
+  // ==================== ÉTATS ====================
   const [selectedRoom, setSelectedRoom] = useState('');
-  const [selectedPortailCategory, setSelectedPortailCategory] = useState('');
+  const [selectedPortail, setSelectedPortail] = useState('');
   const [selectedServices, setSelectedServices] = useState([]);
   const [selectedInstallationType, setSelectedInstallationType] = useState('');
   const [selectedAlimentation, setSelectedAlimentation] = useState('');
@@ -14,32 +14,18 @@ export const useFormLogic = (serviceType) => {
   const [showDevisModal, setShowDevisModal] = useState(false);
   const [devisItems, setDevisItems] = useState([]);
 
-  // Configuration du service actuel
-  const config = serviceConfig[serviceType];
-  const currentRooms = roomsByService[serviceType];
-  const currentServicesByRoom = servicesByRoom[serviceType];
-  const currentSpecificServices = specificServices[serviceType];
+  // ==================== CONFIGURATION MÉMORISÉE ====================
+  const config = useMemo(() => serviceConfig[serviceType], [serviceType]);
+  const currentRooms = useMemo(() => roomsByService[serviceType], [serviceType]);
+  const currentServicesByRoom = useMemo(() => servicesByRoom[serviceType], [serviceType]);
+  const currentSpecificServices = useMemo(() => specificServices[serviceType], [serviceType]);
 
-  // Détermine si le service utilise des pièces, des catégories portail/volet ou des services spécifiques
-  const hasRooms = currentRooms && currentRooms.length > 0;
-  const hasPortailCategories = serviceType === 'portail';
-  const hasSpecificServices = currentSpecificServices && currentSpecificServices.length > 0;
-
-  // Handlers
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Prestations sélectionnées:', selectedServices);
-  };
-
-  const handleRoomChange = (e) => {
-    setSelectedRoom(e.target.value);
-    setSelectedServices([]);
-    setSelectedInstallationType('');
-    setSelectedSecurityType('');
-  };
-
-  const handlePortailCategoryChange = (e) => {
-    setSelectedPortailCategory(e.target.value);
+  // ==================== FONCTIONS UTILITAIRES ====================
+  
+  // Fonction de reset centralisée
+  const resetForm = () => {
+    setSelectedRoom('');
+    setSelectedPortail('');
     setSelectedServices([]);
     setSelectedInstallationType('');
     setSelectedAlimentation('');
@@ -47,7 +33,219 @@ export const useFormLogic = (serviceType) => {
     setSelectedSecurityType('');
   };
 
-  const handleServiceToggle = (serviceValue) => {
+  // Fonctions de calcul de prix spécialisées
+  const calculateRadiateurPrice = (service, quantity, coefficient) => {
+    if (quantity === 1) {
+      return service.prixBase * coefficient;
+    } else if (quantity >= 2) {
+      const firstUnitPrice = service.prixBase * coefficient;
+      const secondUnitPrice = service.prixBase * 0.5;
+      const additionalUnitsPrice = service.prixBase * (quantity - 2);
+      return firstUnitPrice + secondUnitPrice + additionalUnitsPrice;
+    }
+    return 0;
+  };
+
+  const calculateCameraPrice = (service, quantity, coefficient) => {
+    if (quantity === 1) {
+      return service.prixBase * coefficient;
+    } else if (quantity >= 2) {
+      const firstUnitPrice = service.prixBase * coefficient;
+      const additionalUnitsPrice = service.prixBase * (quantity - 1);
+      return firstUnitPrice + additionalUnitsPrice;
+    }
+    return 0;
+  };
+
+  const calculateEclairagePrice = (service, quantity, coefficient) => {
+    if (quantity === 1) {
+      return service.prixBase * coefficient;
+    } else if (quantity >= 2 && quantity <= 4) {
+      const firstUnitPrice = service.prixBase * coefficient;
+      const additionalUnitsPrice = service.prixBase * 0.25 * (quantity - 1);
+      return firstUnitPrice + additionalUnitsPrice;
+    } else if (quantity >= 5 && quantity <= 6) {
+      const firstUnitPrice = service.prixBase * coefficient;
+      const middleUnitsPrice = service.prixBase * 0.25 * 3;
+      return firstUnitPrice + middleUnitsPrice;
+    } else if (quantity >= 7) {
+      const firstUnitPrice = service.prixBase * coefficient;
+      const middleUnitsPrice = service.prixBase * 0.25 * 3;
+      const highQuantityPrice = service.prixBase * 0.25 * (quantity - 6);
+      return firstUnitPrice + middleUnitsPrice + highQuantityPrice;
+    }
+    return 0;
+  };
+
+  const calculateMiroirPrice = (service, quantity, coefficient) => {
+    if (quantity === 1) {
+      return service.prixBase * coefficient;
+    } else if (quantity >= 2 && quantity <= 4) {
+      // 2ème, 3ème, 4ème au prix de base uniquement
+      const firstUnitPrice = service.prixBase * coefficient;
+      const additionalUnitsPrice = service.prixBase * (quantity - 1);
+      return firstUnitPrice + additionalUnitsPrice;
+    } else if (quantity >= 5) {
+      // 5ème et plus : prix de base pour toutes les unités supplémentaires
+      const firstUnitPrice = service.prixBase * coefficient;
+      const additionalUnitsPrice = service.prixBase * (quantity - 1);
+      return firstUnitPrice + additionalUnitsPrice;
+    }
+    return 0;
+  };
+
+  // Fonction utilitaire pour obtenir le prix HT d'un service
+  const getPrixHT = (serviceLabel, room = selectedRoom, portailCategory = selectedPortail) => {
+    if (hasRooms && room && prixPrestations[serviceType]) {
+      if (serviceType === 'appareillage' || serviceType === 'domotique' || serviceType === 'installation') {
+        let prixSection = serviceType === 'appareillage' 
+          ? (room === 'exterieur' ? prixPrestations[serviceType].exterieur : prixPrestations[serviceType].commun)
+          : prixPrestations[serviceType].commun;
+        
+        let serviceKey = Object.keys(prixSection).find(key => 
+          prixSection[key].description === serviceLabel
+        );
+        
+        if (!serviceKey && (serviceType === 'domotique' || serviceType === 'installation') && prixPrestations[serviceType][room]) {
+          prixSection = prixPrestations[serviceType][room];
+          serviceKey = Object.keys(prixSection).find(key => 
+            prixSection[key].description === serviceLabel
+          );
+        }
+        
+        if (serviceKey) {
+          return prixSection[serviceKey].prixHT;
+        }
+      } else {
+        const serviceKey = Object.keys(prixPrestations[serviceType][room]).find(key => 
+          prixPrestations[serviceType][room][key].description === serviceLabel
+        );
+        if (serviceKey) {
+          return prixPrestations[serviceType][room][serviceKey].prixHT;
+        }
+      }
+    } else if (hasPortailCategories && portailCategory && prixPrestations[serviceType] && prixPrestations[serviceType][portailCategory]) {
+      const serviceKey = Object.keys(prixPrestations[serviceType][portailCategory]).find(key => 
+        prixPrestations[serviceType][portailCategory][key].description === serviceLabel
+      );
+      if (serviceKey) {
+        return prixPrestations[serviceType][portailCategory][serviceKey].prixHT;
+      }
+    } else if (hasSpecificServices && prixPrestations[serviceType]) {
+      const serviceKey = Object.keys(prixPrestations[serviceType]).find(key => 
+        prixPrestations[serviceType][key].description === serviceLabel
+      );
+      if (serviceKey) {
+        return prixPrestations[serviceType][serviceKey].prixHT;
+      }
+    }
+    return 0;
+  };
+
+  // ==================== FONCTIONS DE CALCUL DE PRIX ====================
+
+  // Fonction helper pour obtenir les services selon la pièce (gère la structure optimisée)
+  const getServicesForRoom = (roomValue) => {
+    if (!currentServicesByRoom || !roomValue) return [];
+    
+    // Pour l'appareillage, utiliser la structure optimisée existante
+    if (serviceType === 'appareillage') {
+      return roomValue === 'exterieur' 
+        ? currentServicesByRoom.exterieur 
+        : currentServicesByRoom.commun;
+    }
+    
+    // Pour la domotique et l'installation, utiliser la nouvelle structure optimisée
+    if (serviceType === 'domotique' || serviceType === 'installation') {
+      const commonServices = currentServicesByRoom.commun || [];
+      const specificServices = currentServicesByRoom[roomValue] || [];
+      
+      // Créer un map des services spécifiques par leur value pour un remplacement rapide
+      const specificServicesMap = new Map();
+      specificServices.forEach(service => {
+        specificServicesMap.set(service.value, service);
+      });
+      
+      // Remplacer les services communs par les services spécifiques s'ils existent
+      const mergedServices = commonServices.map(commonService => {
+        return specificServicesMap.has(commonService.value) 
+          ? specificServicesMap.get(commonService.value)
+          : commonService;
+      });
+      
+      // Ajouter les services spécifiques qui n'existent pas dans commun
+      const remainingSpecificServices = specificServices.filter(specificService => 
+        !commonServices.some(commonService => commonService.value === specificService.value)
+      );
+      
+      return [...mergedServices, ...remainingSpecificServices];
+    }
+    
+    // Pour les autres services, utiliser la structure classique
+    return currentServicesByRoom[roomValue] || [];
+  };
+
+  // Fonction utilitaire simplifiée pour calculer le prix total selon la quantité et le type de service
+  const calculateServicePrice = (service, quantity, coefficient) => {
+    const isSpecialService = (serviceType === 'domotique' || serviceType === 'installation') && 
+      (service.label.toLowerCase().includes('éclairage') || 
+       service.label.toLowerCase().includes('pris') ||
+       service.label.toLowerCase().includes('internet') ||
+       service.label.toLowerCase().includes('tv') ||
+       service.label.toLowerCase().includes('radiateur') ||
+       service.label.toLowerCase().includes('caméra') ||
+       service.label.toLowerCase().includes('miroir'));
+    
+    if (isSpecialService) {
+      const isRadiateur = service.label.toLowerCase().includes('radiateur');
+      const isCamera = service.label.toLowerCase().includes('caméra');
+      const isMiroir = service.label.toLowerCase().includes('miroir');
+      
+      if (isRadiateur) {
+        return calculateRadiateurPrice(service, quantity, coefficient);
+      } else if (isCamera) {
+        return calculateCameraPrice(service, quantity, coefficient);
+      } else if (isMiroir) {
+        // Logique spéciale pour les miroirs : 2ème, 3ème, 4ème au prix de base uniquement
+        return calculateMiroirPrice(service, quantity, coefficient);
+      } else {
+        return calculateEclairagePrice(service, quantity, coefficient);
+      }
+    }
+    
+    // Pour tous les autres services : prix de base avec coefficient pour toutes les unités
+    return service.prixBase * coefficient * quantity;
+  };
+
+  // ==================== CONFIGURATION DÉRIVÉE ====================
+  const hasRooms = useMemo(() => currentRooms && currentRooms.length > 0, [currentRooms]);
+  const hasPortailCategories = useMemo(() => serviceType === 'portail', [serviceType]);
+  const hasSpecificServices = useMemo(() => currentSpecificServices && currentSpecificServices.length > 0, [currentSpecificServices]);
+
+  // ==================== HANDLERS ====================
+  const handlers = {
+    submit: (e) => {
+      e.preventDefault();
+      console.log('Prestations sélectionnées:', selectedServices);
+    },
+
+    roomChange: (e) => {
+    setSelectedRoom(e.target.value);
+    setSelectedServices([]);
+    setSelectedInstallationType('');
+    setSelectedSecurityType('');
+    },
+
+    portailChange: (e) => {
+      setSelectedPortail(e.target.value);
+    setSelectedServices([]);
+    setSelectedInstallationType('');
+    setSelectedAlimentation('');
+    setSelectedConnexion('');
+    setSelectedSecurityType('');
+    },
+
+    serviceToggle: (serviceValue) => {
     setSelectedServices(prev => {
       if (prev.includes(serviceValue)) {
         return prev.filter(service => service !== serviceValue);
@@ -55,56 +253,63 @@ export const useFormLogic = (serviceType) => {
         return [...prev, serviceValue];
       }
     });
-  };
+    },
 
-  const handleSelectAll = () => {
-    if (hasRooms && selectedRoom && currentServicesByRoom[selectedRoom]) {
-      const allServices = currentServicesByRoom[selectedRoom].map(service => service.value);
-      setSelectedServices(allServices);
-    } else if (hasPortailCategories && selectedPortailCategory && servicesByPortailCategory[selectedPortailCategory]) {
-      const allServices = servicesByPortailCategory[selectedPortailCategory].map(service => service.value);
-      setSelectedServices(allServices);
+    selectAll: () => {
+      let allServices = [];
+
+    if (hasRooms && selectedRoom) {
+      const services = getServicesForRoom(selectedRoom);
+        allServices = services.map(service => service.value);
+      } else if (hasPortailCategories && selectedPortail && servicesByPortailCategory[selectedPortail]) {
+        allServices = servicesByPortailCategory[selectedPortail].map(service => service.value);
     } else if (hasSpecificServices) {
-      const allServices = currentSpecificServices.map(service => service.value);
+        allServices = currentSpecificServices.map(service => service.value);
+      }
+      
       setSelectedServices(allServices);
+    },
+
+    deselectAll: () => {
+    setSelectedServices([]);
+    },
+
+    installationTypeChange: (e) => {
+    setSelectedInstallationType(e.target.value);
+    },
+
+    alimentationChange: (e) => {
+    setSelectedAlimentation(e.target.value);
+    },
+
+    connexionChange: (e) => {
+    setSelectedConnexion(e.target.value);
+    },
+
+    securityTypeChange: (e) => {
+    setSelectedSecurityType(e.target.value);
+      setSelectedServices([]);
     }
   };
 
-  const handleDeselectAll = () => {
-    setSelectedServices([]);
-  };
+  // ==================== GESTION DES DEVIS ====================
+  const addToDevis = () => {
+    if (selectedServices.length === 0) return;
 
-  const handleInstallationTypeChange = (e) => {
-    setSelectedInstallationType(e.target.value);
-  };
-
-  const handleAlimentationChange = (e) => {
-    setSelectedAlimentation(e.target.value);
-  };
-
-  const handleConnexionChange = (e) => {
-    setSelectedConnexion(e.target.value);
-  };
-
-  const handleSecurityTypeChange = (e) => {
-    setSelectedSecurityType(e.target.value);
-    setSelectedServices([]); // Reset des services sélectionnés
-  };
-
-  const handleAddToDevis = () => {
-    if (selectedServices.length > 0) {
+    // Déterminer le label de la pièce/catégorie
       let roomLabel = '';
       let selectedServiceLabels = [];
 
       if (hasRooms && selectedRoom) {
         roomLabel = currentRooms.find(r => r.value === selectedRoom)?.label;
+        const services = getServicesForRoom(selectedRoom);
         selectedServiceLabels = selectedServices.map(serviceValue => 
-          currentServicesByRoom[selectedRoom].find(s => s.value === serviceValue)?.label
+          services.find(s => s.value === serviceValue)?.label
         ).filter(Boolean);
-      } else if (hasPortailCategories && selectedPortailCategory) {
-        roomLabel = portailCategories.find(c => c.value === selectedPortailCategory)?.label;
+    } else if (hasPortailCategories && selectedPortail) {
+      roomLabel = portailCategories.find(c => c.value === selectedPortail)?.label;
         selectedServiceLabels = selectedServices.map(serviceValue => 
-          servicesByPortailCategory[selectedPortailCategory].find(s => s.value === serviceValue)?.label
+        servicesByPortailCategory[selectedPortail].find(s => s.value === serviceValue)?.label
         ).filter(Boolean);
       } else if (hasSpecificServices) {
         roomLabel = config.categoryLabel;
@@ -113,14 +318,15 @@ export const useFormLogic = (serviceType) => {
         ).filter(Boolean);
       }
 
-      // Coefficients selon le type d'installation
+    // Coefficients selon le type d'installation
       const installationCoefficients = {
-        'saignee_encastre': 1.3,     // +30% pour saignée/encastré
-        'saillie_moulure': 1.15,     // +15% pour saillie/moulure
-        'cloison_creuse': 1.0        // +0% pour cloison creuse
-      };
+      'saignee_encastre': 2.25,
+      'saillie_moulure': 1.75,
+      'cloison_creuse': 1.50,
+      'alimentation_existante': 1.0
+    };
 
-      const coefficient = installationCoefficients[selectedInstallationType] || 1.0;
+      const coefficient = serviceType === 'appareillage' ? 1.0 : (installationCoefficients[selectedInstallationType] || 1.0);
 
       const newDevisItem = {
         id: Date.now(),
@@ -129,83 +335,61 @@ export const useFormLogic = (serviceType) => {
         alimentation: selectedAlimentation,
         connexion: selectedConnexion,
         coefficient: coefficient,
-        services: selectedServiceLabels.map(service => {
-          // Récupérer le prix automatiquement
-          let prixHT = 0;
-          if (hasRooms && selectedRoom && prixPrestations[serviceType] && prixPrestations[serviceType][selectedRoom]) {
-            const serviceKey = Object.keys(prixPrestations[serviceType][selectedRoom]).find(key => 
-              prixPrestations[serviceType][selectedRoom][key].description === service
-            );
-            if (serviceKey) {
-              prixHT = prixPrestations[serviceType][selectedRoom][serviceKey].prixHT;
-            }
-          } else if (hasPortailCategories && selectedPortailCategory && prixPrestations[serviceType] && prixPrestations[serviceType][selectedPortailCategory]) {
-            const serviceKey = Object.keys(prixPrestations[serviceType][selectedPortailCategory]).find(key => 
-              prixPrestations[serviceType][selectedPortailCategory][key].description === service
-            );
-            if (serviceKey) {
-              prixHT = prixPrestations[serviceType][selectedPortailCategory][serviceKey].prixHT;
-            }
-          } else if (hasSpecificServices && prixPrestations[serviceType]) {
-            const serviceKey = Object.keys(prixPrestations[serviceType]).find(key => 
-              prixPrestations[serviceType][key].description === service
-            );
-            if (serviceKey) {
-              prixHT = prixPrestations[serviceType][serviceKey].prixHT;
-            }
-          }
-          
-          return {
-            label: service,
+      services: selectedServiceLabels.map(serviceLabel => {
+        const prixHT = getPrixHT(serviceLabel);
+        const serviceData = {
+          label: serviceLabel,
             quantity: 1,
-            priceHT: prixHT * coefficient // Appliquer le coefficient
+          prixBase: prixHT
           };
+        serviceData.priceHT = calculateServicePrice(serviceData, 1, coefficient);
+        return serviceData;
         }),
         completed: false
       };
 
       setDevisItems(prev => [...prev, newDevisItem]);
-      
-      // Reset form
-      setSelectedRoom('');
-      setSelectedPortailCategory('');
-      setSelectedServices([]);
-      setSelectedInstallationType('');
-      setSelectedAlimentation('');
-      setSelectedConnexion('');
-      setSelectedSecurityType('');
-    }
+    resetForm();
   };
 
-  const handleRemoveDevisItem = (itemId) => {
+  const removeDevisItem = (itemId) => {
     setDevisItems(prev => prev.filter(item => item.id !== itemId));
   };
 
-  const handleQuantityChange = (itemId, serviceIndex, quantity) => {
+  const updateQuantity = (itemId, serviceIndex, quantity) => {
+    const qty = parseInt(quantity) || 1;
+    
     setDevisItems(prev => prev.map(item => 
       item.id === itemId 
         ? {
             ...item,
-            services: item.services.map((service, index) => 
-              index === serviceIndex 
-                ? { ...service, quantity: parseInt(quantity) || 1 }
-                : service
-            )
+            services: item.services.map((service, index) => {
+              if (index === serviceIndex) {
+                const totalPrice = calculateServicePrice(service, qty, item.coefficient);
+                return { 
+                  ...service, 
+                  quantity: qty,
+                  priceHT: totalPrice
+                };
+              }
+              return service;
+            })
           }
         : item
     ));
   };
 
-  const handleGenerateDevis = (onClose) => {
+  const generateDevis = (onClose) => {
     if (devisItems.length === 0) return;
     setShowDevisModal(false);
-    onClose(devisItems); // Passer les devisItems au composant parent
+    onClose(devisItems);
   };
 
+  // ==================== EXPORT ====================
   return {
     // États
     selectedRoom,
-    selectedPortailCategory,
+    selectedPortail,
     selectedServices,
     selectedInstallationType,
     selectedAlimentation,
@@ -222,22 +406,19 @@ export const useFormLogic = (serviceType) => {
     hasRooms,
     hasPortailCategories,
     hasSpecificServices,
+    getServicesForRoom,
     
-    // Handlers
-    handleSubmit,
-    handleRoomChange,
-    handlePortailCategoryChange,
-    handleServiceToggle,
-    handleSelectAll,
-    handleDeselectAll,
-    handleInstallationTypeChange,
-    handleAlimentationChange,
-    handleConnexionChange,
-    handleSecurityTypeChange,
-    handleAddToDevis,
-    handleRemoveDevisItem,
-    handleQuantityChange,
-    handleGenerateDevis,
-    setShowDevisModal
+    // Handlers regroupés
+    handlers,
+    
+    // Fonctions de gestion des devis
+    addToDevis,
+    removeDevisItem,
+    updateQuantity,
+    generateDevis,
+    setShowDevisModal,
+    
+    // Fonctions utilitaires
+    resetForm
   };
 };

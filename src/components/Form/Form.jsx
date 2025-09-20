@@ -7,7 +7,7 @@ export default function Form({ serviceType, onClose, onCancel }) {
   const {
     // États
     selectedRoom,
-    selectedPortailCategory,
+    selectedPortail,
     selectedServices,
     selectedInstallationType,
     selectedAlimentation,
@@ -19,37 +19,30 @@ export default function Form({ serviceType, onClose, onCancel }) {
     // Configuration
     config,
     currentRooms,
-    currentServicesByRoom,
     currentSpecificServices,
     hasRooms,
     hasPortailCategories,
     hasSpecificServices,
+    getServicesForRoom,
     
-    // Handlers
-    handleSubmit,
-    handleRoomChange,
-    handlePortailCategoryChange,
-    handleServiceToggle,
-    handleSelectAll,
-    handleDeselectAll,
-    handleInstallationTypeChange,
-    handleAlimentationChange,
-    handleConnexionChange,
-    handleSecurityTypeChange,
-    handleAddToDevis,
-    handleRemoveDevisItem,
-    handleQuantityChange,
-    handleGenerateDevis,
+    // Handlers regroupés
+    handlers,
+    
+    // Fonctions de gestion des devis
+    addToDevis,
+    removeDevisItem,
+    updateQuantity,
+    generateDevis,
     setShowDevisModal
   } = useFormLogic(serviceType);
 
   const onSubmit = (e) => {
-    handleSubmit(e);
+    handlers.submit(e);
     onClose();
   };
 
   const onGenerateDevisClick = () => {
-    handleGenerateDevis(onClose);
+    generateDevis(onClose);
   };
 
   return (
@@ -66,7 +59,7 @@ export default function Form({ serviceType, onClose, onCancel }) {
             <div>
               <select
                 value={selectedRoom}
-                onChange={handleRoomChange}
+                onChange={handlers.roomChange}
                 className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
                 required
               >
@@ -84,8 +77,8 @@ export default function Form({ serviceType, onClose, onCancel }) {
           {hasPortailCategories && (
             <div>
               <select
-                value={selectedPortailCategory}
-                onChange={handlePortailCategoryChange}
+                value={selectedPortail}
+                onChange={handlers.portailChange}
                 className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
                 required
               >
@@ -102,23 +95,23 @@ export default function Form({ serviceType, onClose, onCancel }) {
             hasPortailCategories={hasPortailCategories}
             hasSpecificServices={hasSpecificServices}
             selectedRoom={selectedRoom}
-            selectedPortailCategory={selectedPortailCategory}
+            selectedPortailCategory={selectedPortail}
             currentRooms={currentRooms}
-            currentServicesByRoom={currentServicesByRoom}
             currentSpecificServices={currentSpecificServices}
+            getServicesForRoom={getServicesForRoom}
             config={config}
             selectedServices={selectedServices}
             selectedInstallationType={selectedInstallationType}
             selectedAlimentation={selectedAlimentation}
             selectedConnexion={selectedConnexion}
             selectedSecurityType={selectedSecurityType}
-            onServiceToggle={handleServiceToggle}
-            onSelectAll={handleSelectAll}
-            onDeselectAll={handleDeselectAll}
-            onInstallationTypeChange={handleInstallationTypeChange}
-            onAlimentationChange={handleAlimentationChange}
-            onConnexionChange={handleConnexionChange}
-            onSecurityTypeChange={handleSecurityTypeChange}
+            onServiceToggle={handlers.serviceToggle}
+            onSelectAll={handlers.selectAll}
+            onDeselectAll={handlers.deselectAll}
+            onInstallationTypeChange={handlers.installationTypeChange}
+            onAlimentationChange={handlers.alimentationChange}
+            onConnexionChange={handlers.connexionChange}
+            onSecurityTypeChange={handlers.securityTypeChange}
           />
 
           {/* Boutons d'action */}
@@ -127,9 +120,9 @@ export default function Form({ serviceType, onClose, onCancel }) {
             <div className="flex space-x-2">
               <button 
                 type="button"
-                onClick={handleAddToDevis}
+                onClick={addToDevis}
                 className="bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
-                disabled={selectedServices.length === 0 || (hasRooms && selectedRoom && !selectedInstallationType) || (hasPortailCategories && (!selectedPortailCategory || (selectedPortailCategory === 'portail' && !selectedAlimentation) || (selectedPortailCategory === 'volet' && !selectedConnexion))) || (hasSpecificServices && config.categoryLabel === 'Sécurité' && !selectedSecurityType)}
+                disabled={selectedServices.length === 0 || (hasRooms && selectedRoom && config.categoryLabel !== 'Appareillage' && !selectedInstallationType) || (hasPortailCategories && (!selectedPortail || (selectedPortail === 'portail' && !selectedAlimentation) || (selectedPortail === 'volet' && !selectedConnexion))) || (hasSpecificServices && config.categoryLabel === 'Sécurité' && !selectedSecurityType)}
               >
                 Ajouter prestation
               </button>
@@ -165,8 +158,8 @@ export default function Form({ serviceType, onClose, onCancel }) {
         showDevisModal={showDevisModal}
         devisItems={devisItems}
         onCloseModal={() => setShowDevisModal(false)}
-        onRemoveDevisItem={handleRemoveDevisItem}
-        onQuantityChange={handleQuantityChange}
+        onRemoveDevisItem={removeDevisItem}
+        onQuantityChange={updateQuantity}
         onGenerateDevis={onGenerateDevisClick}
       />
     </>

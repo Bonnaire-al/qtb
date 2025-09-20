@@ -5,8 +5,10 @@ import ModalQuote from '../components/modal/ModalQuote';
 const SERVICES = [
   { key: 'domotique', label: 'Domotique', icon: '🏠' },
   { key: 'installation', label: 'Installation électrique générale', icon: '💡' },
+  
   { key: 'securite', label: 'Système de sécurité', icon: '🔒' },
   { key: 'portail', label: 'Portail électrique / Volet roulant', icon: '🚪' },
+  { key: 'appareillage', label: 'Changement d\'appareillage électrique', icon: '🔧' },
 ];
 
 function Quote() {

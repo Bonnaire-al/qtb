@@ -6,7 +6,7 @@ export const calculateMainOeuvreTotal = (devisItems) => {
   
   return devisItems.reduce((total, item) => 
     total + item.services.reduce((itemTotal, service) => 
-      itemTotal + (service.quantity * service.priceHT), 0
+      itemTotal + service.priceHT, 0 // Utiliser directement le prix total calculé
     ), 0
   );
 };
@@ -40,12 +40,33 @@ export const calculateMaterielTotal = (devisItems, serviceType) => {
   }, 0);
 };
 
+// Calculer la remise selon la main d'œuvre (10% tous les 1000€)
+export const calculateDiscount = (totalMainOeuvreHT) => {
+  const discountMultiplier = Math.floor(totalMainOeuvreHT / 1000);
+  const discountAmount = totalMainOeuvreHT * (discountMultiplier * 0.10);
+  const discountPercentage = discountMultiplier * 10;
+  
+  return {
+    discountAmount,
+    discountPercentage,
+    hasDiscount: discountAmount > 0
+  };
+};
+
 // Calculer les totaux généraux
-export const calculateTotals = (devisItems, serviceType) => {
+export const calculateTotals = (devisItems, serviceType, isCompany = false) => {
   const totalMainOeuvreHT = calculateMainOeuvreTotal(devisItems);
   const totalMaterielHT = calculateMaterielTotal(devisItems, serviceType);
-  const totalHT = totalMaterielHT + totalMainOeuvreHT;
-  const totalTVA = totalHT * 0.20;
+  
+  // Calculer la remise sur la main d'œuvre
+  const { discountAmount, discountPercentage, hasDiscount } = calculateDiscount(totalMainOeuvreHT);
+  const totalMainOeuvreHTAfterDiscount = totalMainOeuvreHT - discountAmount;
+  
+  const totalHT = totalMaterielHT + totalMainOeuvreHTAfterDiscount;
+  
+  // TVA différente selon si c'est une entreprise ou non
+  const tvaRate = isCompany ? 0.20 : 0.10; // 20% pour entreprise, 10% pour particulier
+  const totalTVA = totalHT * tvaRate;
   const totalTTC = totalHT + totalTVA;
   
   return {
@@ -53,7 +74,12 @@ export const calculateTotals = (devisItems, serviceType) => {
     totalMaterielHT,
     totalHT,
     totalTVA,
-    totalTTC
+    totalTTC,
+    tvaRate,
+    discountAmount,
+    discountPercentage,
+    hasDiscount,
+    totalMainOeuvreHTAfterDiscount
   };
 };
 
@@ -98,29 +124,33 @@ export const collectAllMaterials = (devisItems, serviceType) => {
 };
 
 // Créer les lignes du tableau main d'œuvre
-export const createMainOeuvreRows = (devisItems) => {
+export const createMainOeuvreRows = (devisItems, isCompany = false) => {
   const mainOeuvreRows = [];
+  const tvaRate = isCompany ? 0.20 : 0.10;
+  const tvaPercentage = isCompany ? '20%' : '10%';
   
   if (devisItems && devisItems.length > 0) {
     devisItems.forEach((item) => 
       item.services.forEach((service, serviceIndex) => {
-        const totalHT = service.quantity * service.priceHT;
-        const tva = totalHT * 0.20;
+        const totalHT = service.priceHT; // Utiliser directement le prix total calculé
+        const tva = totalHT * tvaRate;
         const totalTTC = totalHT + tva;
         const isFirstService = serviceIndex === 0;
+        
+        const prixUnitaire = service.quantity > 0 ? (service.priceHT / service.quantity).toFixed(2) : '0.00';
         
         mainOeuvreRows.push([
           isFirstService ? item.room : '',
           service.label,
           service.quantity.toString(),
-          service.priceHT > 0 ? `${service.priceHT.toFixed(2)} €` : 'À définir',
-          '20%',
+          service.priceHT > 0 ? `${prixUnitaire} €` : 'À définir',
+          tvaPercentage,
           service.priceHT > 0 ? `${totalTTC.toFixed(2)} €` : 'À définir'
         ]);
       })
     );
   } else {
-    mainOeuvreRows.push(['-', 'Services sélectionnés', '1', 'À définir', '20%', 'À définir']);
+    mainOeuvreRows.push(['-', 'Services sélectionnés', '1', 'À définir', tvaPercentage, 'À définir']);
   }
   
   return mainOeuvreRows;
@@ -129,23 +159,25 @@ export const createMainOeuvreRows = (devisItems) => {
 // Créer les lignes du tableau matériel
 export const createMaterielRows = (allMaterials) => {
   const materielRows = [];
+  const tvaRate = 0.20; // Matériel toujours à 20%
+  const tvaPercentage = '20%';
   
   if (allMaterials.length > 0) {
     allMaterials.forEach((material) => {
       const totalHT = material.quantite * material.prixHT;
-      const tva = totalHT * 0.20;
+      const tva = totalHT * tvaRate;
       const totalTTC = totalHT + tva;
       
       materielRows.push([
         material.nom,
         material.quantite.toString(),
         `${material.prixHT.toFixed(2)} €`,
-        '20%',
+        tvaPercentage,
         `${totalTTC.toFixed(2)} €`
       ]);
     });
   } else {
-    materielRows.push(['Matériel nécessaire', '-', 'À définir', '20%', 'À définir']);
+    materielRows.push(['Matériel nécessaire', '-', 'À définir', tvaPercentage, 'À définir']);
   }
   
   return materielRows;
