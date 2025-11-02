@@ -6,6 +6,7 @@ import Home from './pages/Home'
 import Service from './pages/Service'
 import About from './pages/About'
 import Quote from './pages/Quote'
+import Admin from './pages/admin/Admin'
 import './App.css'
 
 function App() {
@@ -64,6 +65,13 @@ function App() {
               <Quote />
             </main>
             <Footer />
+          </div>
+        } />
+        <Route path="/admin" element={
+          <div className="App flex flex-col min-h-screen">
+            <main className="flex-grow">
+              <Admin />
+            </main>
           </div>
         } />
       </Routes>

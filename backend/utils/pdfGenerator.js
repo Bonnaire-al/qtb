@@ -1,9 +1,22 @@
-import { 
+const pdfMake = require('pdfmake/build/pdfmake');
+const pdfFonts = require('pdfmake/build/vfs_fonts');
+const { 
   calculateTotals, 
   collectAllMaterials, 
   createMainOeuvreRows, 
   createMaterielRows 
-} from './pdfCalculs';
+} = require('./pdfCalculs');
+
+// Configuration des polices
+// En Node.js, pdfFonts est directement l'objet vfs
+if (pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
+  pdfMake.vfs = pdfFonts.pdfMake.vfs;
+} else if (pdfFonts.vfs) {
+  pdfMake.vfs = pdfFonts.vfs;
+} else {
+  // Fallback : pdfFonts est directement le vfs
+  pdfMake.vfs = pdfFonts;
+}
 
 // Configuration des styles PDF
 const pdfStyles = {
@@ -87,27 +100,11 @@ const pdfStyles = {
   }
 };
 
-// Fonction pour configurer les polices pdfmake
-export const configurePdfMakeFonts = async (pdfMake, pdfFonts) => {
-  try {
-    if (pdfFonts && pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
-      pdfMake.vfs = pdfFonts.pdfMake.vfs;
-    } else if (pdfFonts && pdfFonts.vfs) {
-      pdfMake.vfs = pdfFonts.vfs;
-    } else if (pdfFonts && pdfFonts.default && pdfFonts.default.vfs) {
-      pdfMake.vfs = pdfFonts.default.vfs;
-    }
-  } catch (error) {
-    console.warn('Utilisation des polices par défaut:', error);
-  }
-};
-
 // Fonction pour créer la définition du document PDF
-export const createPdfDocument = (formData, devisItems) => {
-  const serviceType = formData?.service || 'domotique';
-  const isCompany = formData?.company && formData.company.trim() !== ''; // Vérifier si le champ entreprise est rempli
-  const totals = calculateTotals(devisItems, serviceType, isCompany);
-  const allMaterials = collectAllMaterials(devisItems, serviceType);
+const createPdfDocument = (formData, devisItems, materielsData) => {
+  const isCompany = formData?.company && formData.company.trim() !== '';
+  const totals = calculateTotals(devisItems, materielsData, isCompany);
+  const allMaterials = collectAllMaterials(devisItems, materielsData);
   const mainOeuvreRows = createMainOeuvreRows(devisItems, isCompany);
   const materielRows = createMaterielRows(allMaterials);
 
@@ -386,32 +383,41 @@ export const createPdfDocument = (formData, devisItems) => {
   };
 };
 
-// Fonction principale pour générer le PDF
-export const generatePDF = async (formData, devisItems) => {
-  try {
-    // Import dynamique de pdfmake
-    const pdfMake = (await import('pdfmake/build/pdfmake')).default;
-    const pdfFonts = (await import('pdfmake/build/vfs_fonts')).default;
-    
-    // Configuration des polices
-    await configurePdfMakeFonts(pdfMake, pdfFonts);
-
-    // Créer la définition du document
-    const docDefinition = createPdfDocument(formData, devisItems);
-
-    // Générer le PDF
-    const pdfDoc = pdfMake.createPdf(docDefinition);
-    
-    // Retourner une promesse qui résout avec les données PDF
-    return new Promise((resolve) => {
-      pdfDoc.getBase64((data) => {
-        const pdfBase64 = `data:application/pdf;base64,${data}`;
-        resolve(pdfBase64);
+// Fonction pour générer le PDF et retourner le buffer
+const generatePDFBuffer = (formData, devisItems, materielsData) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const docDefinition = createPdfDocument(formData, devisItems, materielsData);
+      const pdfDoc = pdfMake.createPdf(docDefinition);
+      
+      pdfDoc.getBuffer((buffer) => {
+        resolve(buffer);
       });
-    });
-    
-  } catch (error) {
-    console.error('Erreur lors de la génération du PDF:', error);
-    throw new Error(`Erreur lors de la génération du PDF: ${error.message}`);
-  }
+    } catch (error) {
+      reject(error);
+    }
+  });
 };
+
+// Fonction pour générer le PDF en base64
+const generatePDFBase64 = (formData, devisItems, materielsData) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const docDefinition = createPdfDocument(formData, devisItems, materielsData);
+      const pdfDoc = pdfMake.createPdf(docDefinition);
+      
+      pdfDoc.getBase64((data) => {
+        resolve(data);
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
+module.exports = {
+  createPdfDocument,
+  generatePDFBuffer,
+  generatePDFBase64
+};
+

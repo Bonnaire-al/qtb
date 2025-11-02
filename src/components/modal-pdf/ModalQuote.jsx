@@ -1,6 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { generatePDF } from '../../utils/pdfGenerator';
-import { downloadPDF, validateDownloadData } from '../../utils/download';
+import React, { useState, useEffect, useRef } from 'react';
+import { generatePDFFromAPI, validatePDFData } from '../../utils/pdfService';
 import LoadingScreen from './LoadingScreen';
 import PDFViewer from './PDFViewer';
 import PDFErrorModal from './PDFErrorModal';
@@ -10,64 +9,103 @@ export default function ModalQuote({ formData, onBackToStep1, devisItems = [] })
   const [showViewer, setShowViewer] = useState(false);
   const [pdfError, setPdfError] = useState(null);
   const [isGenerating, setIsGenerating] = useState(true);
+  const hasGeneratedRef = useRef(false);
+
+  // Fonction pour sauvegarder le devis
+  const saveQuoteToLocalStorage = (pdfUrl) => {
+    try {
+      const existingQuotes = JSON.parse(localStorage.getItem('savedQuotes') || '[]');
+      const newQuote = {
+        id: Date.now(),
+        date: new Date().toISOString(),
+        formData,
+        devisItems,
+        pdfUrl,
+      };
+      existingQuotes.push(newQuote);
+      localStorage.setItem('savedQuotes', JSON.stringify(existingQuotes));
+      console.log('✅ Devis sauvegardé avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde du devis:', error);
+    }
+  };
+
+  // Fonction pour télécharger le PDF depuis les données base64
+  const downloadPDFFromBase64 = (base64Data) => {
+    try {
+      const clientName = formData?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'client';
+      const date = new Date().toISOString().split('T')[0];
+      const fileName = `devis_${clientName}_${date}.pdf`;
+      
+      const link = document.createElement('a');
+      link.href = base64Data;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('❌ Erreur lors du téléchargement:', error);
+      throw new Error('Impossible de télécharger le PDF');
+    }
+  };
 
   // Fonction pour générer le PDF
-  const handleGeneratePDF = useCallback(async () => {
+  const handleGeneratePDF = async () => {
+    if (hasGeneratedRef.current) return;
+    
     try {
       setIsGenerating(true);
       setPdfError(null);
       
-      const pdfBase64 = await generatePDF(formData, devisItems);
+      // Valider les données avant génération
+      const validation = validatePDFData(formData, devisItems);
+      if (!validation.isValid) {
+        setPdfError(validation.error);
+        return;
+      }
+      
+      const serviceType = formData?.service || 'domotique';
+      const pdfBase64 = await generatePDFFromAPI(formData, devisItems, serviceType);
+      
       setPdfData(pdfBase64);
       setShowViewer(true);
+      saveQuoteToLocalStorage(pdfBase64);
+      hasGeneratedRef.current = true;
+      
     } catch (error) {
-      console.error('Erreur lors de la génération du PDF:', error);
-      setPdfError(error.message);
+      console.error('❌ Erreur lors de la génération du PDF:', error);
+      setPdfError(error.message || 'Erreur lors de la génération du PDF');
     } finally {
       setIsGenerating(false);
     }
-  }, [formData, devisItems]);
+  };
 
   // Fonction pour télécharger le PDF
   const handleDownloadPDF = () => {
     if (!pdfData) {
-      console.error('Aucune donnée PDF disponible pour le téléchargement');
       setPdfError('Aucune donnée PDF disponible pour le téléchargement');
       return;
     }
     
-    const clientName = formData?.name || 'client';
-    const validation = validateDownloadData(pdfData, clientName);
-    
-    if (!validation.isValid) {
-      setPdfError(validation.error);
-      return;
-    }
-    
     try {
-      downloadPDF(pdfData, clientName);
+      downloadPDFFromBase64(pdfData);
     } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
-      setPdfError('Erreur lors du téléchargement du PDF');
+      setPdfError(error.message);
     }
   };
-
-  // Fonction pour fermer le viewer
-  const handleCloseViewer = () => {
-    setShowViewer(false);
-  };
-
 
   // Fonction pour réessayer la génération
   const handleRetry = () => {
+    hasGeneratedRef.current = false;
     setPdfError(null);
     handleGeneratePDF();
   };
 
-  // Générer automatiquement le PDF au chargement du composant
+  // Générer automatiquement le PDF au montage du composant (une seule fois)
   useEffect(() => {
     handleGeneratePDF();
-  }, [handleGeneratePDF]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionnellement vide - on veut générer une seule fois
 
   // Afficher l'écran de chargement pendant la génération
   if (isGenerating && !pdfError) {
@@ -127,7 +165,7 @@ export default function ModalQuote({ formData, onBackToStep1, devisItems = [] })
         showViewer={showViewer}
         pdfData={pdfData}
         onDownload={handleDownloadPDF}
-        onClose={handleCloseViewer}
+        onClose={() => setShowViewer(false)}
       />
 
       {/* Modal d'erreur */}

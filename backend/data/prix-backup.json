@@ -1,0 +1,490 @@
+[
+  {
+    "id": 1,
+    "categorie": "domotique",
+    "sous_categorie": "commun",
+    "service": "eclairage",
+    "prix_ht": 20,
+    "description": "Éclairage connecté/détecteur"
+  },
+  {
+    "id": 2,
+    "categorie": "domotique",
+    "sous_categorie": "commun",
+    "service": "prises",
+    "prix_ht": 30,
+    "description": "Prises de courant connectées/commandées"
+  },
+  {
+    "id": 3,
+    "categorie": "domotique",
+    "sous_categorie": "commun",
+    "service": "radiateur",
+    "prix_ht": 35,
+    "description": "Radiateur connecté/centralisé"
+  },
+  {
+    "id": 4,
+    "categorie": "domotique",
+    "sous_categorie": "commun",
+    "service": "volets",
+    "prix_ht": 85,
+    "description": "Volets roulants connectés"
+  },
+  {
+    "id": 5,
+    "categorie": "domotique",
+    "sous_categorie": "commun",
+    "service": "internet",
+    "prix_ht": 20,
+    "description": "Prise internet"
+  },
+  {
+    "id": 6,
+    "categorie": "domotique",
+    "sous_categorie": "commun",
+    "service": "tv",
+    "prix_ht": 20,
+    "description": "Prise TV"
+  },
+  {
+    "id": 7,
+    "categorie": "domotique",
+    "sous_categorie": "commun",
+    "service": "tableau",
+    "prix_ht": 250,
+    "description": "Installation tableau électrique"
+  },
+  {
+    "id": 8,
+    "categorie": "domotique",
+    "sous_categorie": "cuisine",
+    "service": "plaque_cuisson",
+    "prix_ht": 30,
+    "description": "Plaque cuisson connectée"
+  },
+  {
+    "id": 9,
+    "categorie": "domotique",
+    "sous_categorie": "cuisine",
+    "service": "four",
+    "prix_ht": 30,
+    "description": "Four connecté"
+  },
+  {
+    "id": 10,
+    "categorie": "domotique",
+    "sous_categorie": "cuisine",
+    "service": "lave_linge_vaisselle",
+    "prix_ht": 40,
+    "description": "Lave linge/vaisselle connecté"
+  },
+  {
+    "id": 11,
+    "categorie": "domotique",
+    "sous_categorie": "cuisine",
+    "service": "applique",
+    "prix_ht": 20,
+    "description": "Applique connectée"
+  },
+  {
+    "id": 12,
+    "categorie": "domotique",
+    "sous_categorie": "salle_de_bain",
+    "service": "radiateur",
+    "prix_ht": 35,
+    "description": "sèche serviette connecté/centralisé"
+  },
+  {
+    "id": 13,
+    "categorie": "domotique",
+    "sous_categorie": "salle_de_bain",
+    "service": "applique_miroir",
+    "prix_ht": 20,
+    "description": "Applique/miroir connecté"
+  },
+  {
+    "id": 14,
+    "categorie": "domotique",
+    "sous_categorie": "toilette",
+    "service": "applique_miroir",
+    "prix_ht": 20,
+    "description": "Applique/miroir connecté"
+  },
+  {
+    "id": 15,
+    "categorie": "domotique",
+    "sous_categorie": "cellier",
+    "service": "lave_linge_vaisselle",
+    "prix_ht": 40,
+    "description": "Lave linge/vaisselle connecté"
+  },
+  {
+    "id": 16,
+    "categorie": "domotique",
+    "sous_categorie": "cave",
+    "service": "eclairage",
+    "prix_ht": 30,
+    "description": "Éclairage connecté/détecteur"
+  },
+  {
+    "id": 17,
+    "categorie": "domotique",
+    "sous_categorie": "cave",
+    "service": "prises",
+    "prix_ht": 25,
+    "description": "Prises de courant connectées/commandées"
+  },
+  {
+    "id": 18,
+    "categorie": "domotique",
+    "sous_categorie": "cave",
+    "service": "lave_linge_seche_linge",
+    "prix_ht": 40,
+    "description": "Lave-linge/sèche-linge connecté"
+  },
+  {
+    "id": 19,
+    "categorie": "domotique",
+    "sous_categorie": "exterieur",
+    "service": "eclairage",
+    "prix_ht": 35,
+    "description": "Éclairage connecté/détecteur"
+  },
+  {
+    "id": 20,
+    "categorie": "domotique",
+    "sous_categorie": "exterieur",
+    "service": "prises",
+    "prix_ht": 45,
+    "description": "Prise connectée/commandée"
+  },
+  {
+    "id": 21,
+    "categorie": "domotique",
+    "sous_categorie": "exterieur",
+    "service": "interphone",
+    "prix_ht": 70,
+    "description": "Interphone connecté"
+  },
+  {
+    "id": 22,
+    "categorie": "domotique",
+    "sous_categorie": "exterieur",
+    "service": "alarme_securite",
+    "prix_ht": 150,
+    "description": "Alarme sécurité connectée"
+  },
+  {
+    "id": 23,
+    "categorie": "domotique",
+    "sous_categorie": "exterieur",
+    "service": "camera",
+    "prix_ht": 35,
+    "description": "Caméra connectée"
+  },
+  {
+    "id": 24,
+    "categorie": "domotique",
+    "sous_categorie": "exterieur",
+    "service": "portail",
+    "prix_ht": 130,
+    "description": "Portail connecté"
+  },
+  {
+    "id": 25,
+    "categorie": "installation",
+    "sous_categorie": "commun",
+    "service": "eclairage",
+    "prix_ht": 35,
+    "description": "Installation éclairage"
+  },
+  {
+    "id": 26,
+    "categorie": "installation",
+    "sous_categorie": "commun",
+    "service": "prises",
+    "prix_ht": 25,
+    "description": "Installation prises de courant"
+  },
+  {
+    "id": 27,
+    "categorie": "installation",
+    "sous_categorie": "commun",
+    "service": "interrupteurs",
+    "prix_ht": 20,
+    "description": "Installation interrupteurs"
+  },
+  {
+    "id": 28,
+    "categorie": "installation",
+    "sous_categorie": "commun",
+    "service": "tableau",
+    "prix_ht": 50,
+    "description": "Connexion tableau électrique"
+  },
+  {
+    "id": 29,
+    "categorie": "installation",
+    "sous_categorie": "commun",
+    "service": "detecteur",
+    "prix_ht": 40,
+    "description": "Installation détecteur de fumée"
+  },
+  {
+    "id": 30,
+    "categorie": "installation",
+    "sous_categorie": "commun",
+    "service": "tv",
+    "prix_ht": 30,
+    "description": "Installation prise TV"
+  },
+  {
+    "id": 31,
+    "categorie": "installation",
+    "sous_categorie": "commun",
+    "service": "internet",
+    "prix_ht": 25,
+    "description": "Installation prise internet RJ45"
+  },
+  {
+    "id": 32,
+    "categorie": "installation",
+    "sous_categorie": "commun",
+    "service": "radiateur",
+    "prix_ht": 60,
+    "description": "Installation radiateur"
+  },
+  {
+    "id": 33,
+    "categorie": "installation",
+    "sous_categorie": "cuisine",
+    "service": "plaque_cuisson",
+    "prix_ht": 80,
+    "description": "Installation plaque de cuisson"
+  },
+  {
+    "id": 34,
+    "categorie": "installation",
+    "sous_categorie": "cuisine",
+    "service": "four",
+    "prix_ht": 60,
+    "description": "Installation four électrique"
+  },
+  {
+    "id": 35,
+    "categorie": "installation",
+    "sous_categorie": "cuisine",
+    "service": "lave_linge",
+    "prix_ht": 50,
+    "description": "Installation lave-linge"
+  },
+  {
+    "id": 36,
+    "categorie": "installation",
+    "sous_categorie": "cuisine",
+    "service": "vaisselle",
+    "prix_ht": 50,
+    "description": "Installation lave-vaisselle"
+  },
+  {
+    "id": 37,
+    "categorie": "installation",
+    "sous_categorie": "salle_de_bain",
+    "service": "seche_serviette",
+    "prix_ht": 70,
+    "description": "Installation sèche-serviette"
+  },
+  {
+    "id": 38,
+    "categorie": "installation",
+    "sous_categorie": "salle_de_bain",
+    "service": "chauffe_eau",
+    "prix_ht": 80,
+    "description": "Installation chauffe-eau"
+  },
+  {
+    "id": 39,
+    "categorie": "portail",
+    "sous_categorie": "portail",
+    "service": "portail_coulissant",
+    "prix_ht": 300,
+    "description": "Portail coulissant"
+  },
+  {
+    "id": 40,
+    "categorie": "portail",
+    "sous_categorie": "portail",
+    "service": "portail_battant",
+    "prix_ht": 250,
+    "description": "Portail battant"
+  },
+  {
+    "id": 41,
+    "categorie": "portail",
+    "sous_categorie": "portail",
+    "service": "portail_sectionnel",
+    "prix_ht": 400,
+    "description": "Portail sectionnel"
+  },
+  {
+    "id": 42,
+    "categorie": "portail",
+    "sous_categorie": "portail",
+    "service": "portail_basculant",
+    "prix_ht": 200,
+    "description": "Portail basculant"
+  },
+  {
+    "id": 43,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "alarme_intrusion",
+    "prix_ht": 200,
+    "description": "Alarme d'intrusion"
+  },
+  {
+    "id": 44,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "alarme_incendie",
+    "prix_ht": 150,
+    "description": "Alarme incendie"
+  },
+  {
+    "id": 45,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "alarme_gaz",
+    "prix_ht": 120,
+    "description": "Détecteur de gaz"
+  },
+  {
+    "id": 46,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "camera_exterieur",
+    "prix_ht": 180,
+    "description": "Caméras extérieures"
+  },
+  {
+    "id": 47,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "camera_interieur",
+    "prix_ht": 150,
+    "description": "Caméras intérieures"
+  },
+  {
+    "id": 48,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "controle_acces",
+    "prix_ht": 180,
+    "description": "Contrôle d'accès"
+  },
+  {
+    "id": 49,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "serrure_connectee",
+    "prix_ht": 120,
+    "description": "Serrure connectée"
+  },
+  {
+    "id": 50,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "gash_electrique",
+    "prix_ht": 80,
+    "description": "Gash électrique"
+  },
+  {
+    "id": 51,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "interphone",
+    "prix_ht": 120,
+    "description": "Interphone"
+  },
+  {
+    "id": 52,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "interphone_video",
+    "prix_ht": 250,
+    "description": "Interphone vidéo"
+  },
+  {
+    "id": 65,
+    "categorie": "portail",
+    "sous_categorie": "volet",
+    "service": "volet_roulant_petit",
+    "prix_ht": 150,
+    "description": "Volet roulant (petit - 1m sur 1m)"
+  },
+  {
+    "id": 66,
+    "categorie": "portail",
+    "sous_categorie": "volet",
+    "service": "volet_roulant_moyen",
+    "prix_ht": 200,
+    "description": "Volet roulant (moyen - 2m sur 2m)"
+  },
+  {
+    "id": 67,
+    "categorie": "portail",
+    "sous_categorie": "volet",
+    "service": "volet_roulant_grand",
+    "prix_ht": 250,
+    "description": "Volet roulant (grand - 3m sur 3m)"
+  },
+  {
+    "id": 68,
+    "categorie": "portail",
+    "sous_categorie": "volet",
+    "service": "volet_roulant_extra",
+    "prix_ht": 300,
+    "description": "Volet roulant (extra - plus de 3m)"
+  },
+  {
+    "id": 69,
+    "categorie": "portail",
+    "sous_categorie": "portail",
+    "service": "portail_battant_connecte",
+    "prix_ht": 300,
+    "description": "Portail battant connecté"
+  },
+  {
+    "id": 70,
+    "categorie": "portail",
+    "sous_categorie": "portail",
+    "service": "portail_coulissant_connecte",
+    "prix_ht": 350,
+    "description": "Portail coulissant connecté"
+  },
+  {
+    "id": 71,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "gash_electrique",
+    "prix_ht": 80,
+    "description": "Gash électrique"
+  },
+  {
+    "id": 72,
+    "categorie": "securite",
+    "sous_categorie": "securite",
+    "service": "interphone_gash_electrique",
+    "prix_ht": 200,
+    "description": "Interphone + Gash électrique"
+  },
+  {
+    "id": 75,
+    "categorie": "domotique",
+    "sous_categorie": "commun",
+    "service": "nouveau_service",
+    "prix_ht": 2,
+    "description": "Nouveau prix"
+  }
+]

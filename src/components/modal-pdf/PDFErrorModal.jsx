@@ -1,11 +1,6 @@
 import React from 'react';
 
-const PDFErrorModal = ({ 
-  showError, 
-  errorMessage, 
-  onRetry, 
-  onBack 
-}) => {
+const PDFErrorModal = ({ showError, errorMessage, onRetry, onBack }) => {
   if (!showError) return null;
 
   return (
@@ -18,13 +13,13 @@ const PDFErrorModal = ({
           <div className="flex gap-2 justify-center">
             <button
               onClick={onRetry}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
             >
               Réessayer
             </button>
             <button
               onClick={onBack}
-              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
             >
               Retour
             </button>

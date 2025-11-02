@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { portailCategories, servicesByPortailCategory } from '../../data/servicesData';
 
 // ==================== COMPOSANTS UTILITAIRES ====================
 
@@ -98,25 +97,19 @@ const SelectedCount = ({ count }) => (
 
 const ServiceCheckboxList = ({
   hasRooms,
-  hasPortailCategories,
   hasSpecificServices,
   selectedRoom,
-  selectedPortailCategory,
   currentRooms,
   currentSpecificServices,
   getServicesForRoom,
   config,
   selectedServices,
   selectedInstallationType,
-  selectedAlimentation,
-  selectedConnexion,
   selectedSecurityType,
   onServiceToggle,
   onSelectAll,
   onDeselectAll,
   onInstallationTypeChange,
-  onAlimentationChange,
-  onConnexionChange,
   onSecurityTypeChange
 }) => {
   // ==================== VARIABLES DÉRIVÉES OPTIMISÉES ====================
@@ -124,46 +117,36 @@ const ServiceCheckboxList = ({
   // Variables booléennes pour améliorer la lisibilité
   const isSecurity = config.categoryLabel === 'Sécurité';
   const isSecurityWithoutType = isSecurity && !selectedSecurityType;
-  const isAppareillage = config.categoryLabel === 'Appareillage';
   const hasSelectedServices = selectedServices.length > 0;
-  const isPortailSelected = hasPortailCategories && selectedPortailCategory === 'portail';
-  const isVoletSelected = hasPortailCategories && selectedPortailCategory === 'volet';
 
   // Conditions d'affichage simplifiées
-  const shouldShowServices = (hasRooms && selectedRoom) || 
-                           (hasPortailCategories && selectedPortailCategory) || 
-                           (hasSpecificServices && !hasPortailCategories);
+  const shouldShowServices = (hasRooms && selectedRoom) || hasSpecificServices;
 
   const shouldShowSelectionButtons = !isSecurityWithoutType;
   const shouldShowServicesList = !isSecurityWithoutType;
-  const shouldShowInstallationType = hasRooms && selectedRoom && hasSelectedServices && !isAppareillage;
-  const shouldShowAlimentation = isPortailSelected && hasSelectedServices;
-  const shouldShowConnexion = isVoletSelected && hasSelectedServices;
+  const shouldShowInstallationType = (hasRooms && selectedRoom && hasSelectedServices) || 
+                                      (hasSpecificServices && hasSelectedServices && config.categoryLabel === 'Portail / Volet') ||
+                                      (hasSpecificServices && hasSelectedServices && isSecurity && selectedSecurityType === 'filaire');
 
   // Services mémorisés pour éviter les recalculs
   const services = useMemo(() => {
     if (hasRooms && selectedRoom) {
       return getServicesForRoom(selectedRoom);
-    } else if (hasPortailCategories && selectedPortailCategory && servicesByPortailCategory[selectedPortailCategory]) {
-      return servicesByPortailCategory[selectedPortailCategory];
     } else if (hasSpecificServices) {
       return currentSpecificServices;
     }
     return [];
-  }, [hasRooms, selectedRoom, hasPortailCategories, selectedPortailCategory, hasSpecificServices, currentSpecificServices, getServicesForRoom]);
+  }, [hasRooms, selectedRoom, hasSpecificServices, currentSpecificServices, getServicesForRoom]);
 
   // Titre mémorisé
   const title = useMemo(() => {
     if (hasRooms && selectedRoom) {
       const roomLabel = currentRooms.find(r => r.value === selectedRoom)?.label;
       return `Prestations pour ${roomLabel}`;
-    } else if (hasPortailCategories && selectedPortailCategory) {
-      const categoryLabel = portailCategories.find(c => c.value === selectedPortailCategory)?.label;
-      return `Prestations pour ${categoryLabel}`;
     } else {
       return `Prestations ${config.categoryLabel.toLowerCase()}`;
     }
-  }, [hasRooms, selectedRoom, hasPortailCategories, selectedPortailCategory, config.categoryLabel, currentRooms]);
+  }, [hasRooms, selectedRoom, config.categoryLabel, currentRooms]);
 
   // Options des radio groups mémorisées
   const installationOptions = useMemo(() => [
@@ -176,16 +159,6 @@ const ServiceCheckboxList = ({
   const securityOptions = useMemo(() => [
     { value: 'wifi', label: 'Wifi (système connecté)' },
     { value: 'filaire', label: 'Filaire (système en local)' }
-  ], []);
-
-  const alimentationOptions = useMemo(() => [
-    { value: 'alimentation_existante', label: 'Alimentation existante' },
-    { value: 'alimentation_inexistante', label: 'Alimentation inexistante' }
-  ], []);
-
-  const connexionOptions = useMemo(() => [
-    { value: 'connecte', label: 'Connecté (app mobile)' },
-    { value: 'classique', label: 'Classique' }
   ], []);
 
   if (!shouldShowServices) return null;
@@ -239,28 +212,6 @@ const ServiceCheckboxList = ({
           options={installationOptions}
           value={selectedInstallationType}
           onChange={onInstallationTypeChange}
-        />
-      )}
-
-      {/* Choix de l'alimentation pour portail */}
-      {shouldShowAlimentation && (
-        <RadioGroup
-          title="Alimentation :"
-          name="alimentation"
-          options={alimentationOptions}
-          value={selectedAlimentation}
-          onChange={onAlimentationChange}
-        />
-      )}
-
-      {/* Choix de la connexion pour volet */}
-      {shouldShowConnexion && (
-        <RadioGroup
-          title="Connexion :"
-          name="connexion"
-          options={connexionOptions}
-          value={selectedConnexion}
-          onChange={onConnexionChange}
         />
       )}
     </div>

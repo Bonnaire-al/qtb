@@ -40,11 +40,6 @@ const DevisItemList = ({
                           Type: {item.installationType === 'saignee_encastre' ? 'Saignée/Encastré' : 
                                  item.installationType === 'saillie_moulure' ? 'Saillie/Moulure' :
                                  item.installationType === 'cloison_creuse' ? 'Cloison creuse' : item.installationType}
-                          {item.coefficient > 1 && (
-                            <span className="ml-2 text-green-600 font-medium">
-                              (Coefficient: {item.coefficient}x)
-                            </span>
-                          )}
                         </p>
                       )}
                       {item.alimentation && (

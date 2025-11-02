@@ -7,21 +7,19 @@ export default function Form({ serviceType, onClose, onCancel }) {
   const {
     // États
     selectedRoom,
-    selectedPortail,
     selectedServices,
     selectedInstallationType,
-    selectedAlimentation,
-    selectedConnexion,
     selectedSecurityType,
     showDevisModal,
     devisItems,
+    isLoadingPrices,
+    isLoadingServices,
     
     // Configuration
     config,
     currentRooms,
     currentSpecificServices,
     hasRooms,
-    hasPortailCategories,
     hasSpecificServices,
     getServicesForRoom,
     
@@ -33,7 +31,8 @@ export default function Form({ serviceType, onClose, onCancel }) {
     removeDevisItem,
     updateQuantity,
     generateDevis,
-    setShowDevisModal
+    setShowDevisModal,
+    reloadData
   } = useFormLogic(serviceType);
 
   const onSubmit = (e) => {
@@ -45,13 +44,35 @@ export default function Form({ serviceType, onClose, onCancel }) {
     generateDevis(onClose);
   };
 
+  // Afficher un loader pendant le chargement
+  if (isLoadingPrices || isLoadingServices) {
+    return (
+      <div className="max-h-[80vh] overflow-y-auto max-w-md mx-auto px-8">
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mb-4"></div>
+          <p className="text-gray-600">Chargement du formulaire...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="max-h-[80vh] overflow-y-auto max-w-md mx-auto px-8">
         <form onSubmit={onSubmit} className="space-y-4">
-          {/* Titre du projet */}
-          <div className="text-center mb-4">
+          {/* Titre du projet avec bouton refresh */}
+          <div className="text-center mb-4 relative">
             <h2 className="text-xl font-bold text-cyan-800">{config.title}</h2>
+            <button
+              type="button"
+              onClick={reloadData}
+              className="absolute right-0 top-0 text-gray-400 hover:text-cyan-600 transition-colors"
+              title="Rafraîchir les données"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
           </div>
 
           {/* Sélection de la pièce (seulement pour domotique et installation) */}
@@ -73,44 +94,22 @@ export default function Form({ serviceType, onClose, onCancel }) {
             </div>
           )}
 
-          {/* Sélection de la catégorie portail/volet (seulement pour portail) */}
-          {hasPortailCategories && (
-            <div>
-              <select
-                value={selectedPortail}
-                onChange={handlers.portailChange}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
-                required
-              >
-                <option value="">Choisissez le type</option>
-                <option value="portail">Portail électrique</option>
-                <option value="volet">Volet roulant</option>
-              </select>
-            </div>
-          )}
-
           {/* ServiceCheckboxList consolidé */}
           <ServiceCheckboxList
             hasRooms={hasRooms}
-            hasPortailCategories={hasPortailCategories}
             hasSpecificServices={hasSpecificServices}
             selectedRoom={selectedRoom}
-            selectedPortailCategory={selectedPortail}
             currentRooms={currentRooms}
             currentSpecificServices={currentSpecificServices}
             getServicesForRoom={getServicesForRoom}
             config={config}
             selectedServices={selectedServices}
             selectedInstallationType={selectedInstallationType}
-            selectedAlimentation={selectedAlimentation}
-            selectedConnexion={selectedConnexion}
             selectedSecurityType={selectedSecurityType}
             onServiceToggle={handlers.serviceToggle}
             onSelectAll={handlers.selectAll}
             onDeselectAll={handlers.deselectAll}
             onInstallationTypeChange={handlers.installationTypeChange}
-            onAlimentationChange={handlers.alimentationChange}
-            onConnexionChange={handlers.connexionChange}
             onSecurityTypeChange={handlers.securityTypeChange}
           />
 
@@ -122,7 +121,12 @@ export default function Form({ serviceType, onClose, onCancel }) {
                 type="button"
                 onClick={addToDevis}
                 className="bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
-                disabled={selectedServices.length === 0 || (hasRooms && selectedRoom && config.categoryLabel !== 'Appareillage' && !selectedInstallationType) || (hasPortailCategories && (!selectedPortail || (selectedPortail === 'portail' && !selectedAlimentation) || (selectedPortail === 'volet' && !selectedConnexion))) || (hasSpecificServices && config.categoryLabel === 'Sécurité' && !selectedSecurityType)}
+                disabled={
+                  selectedServices.length === 0 || 
+                  (hasRooms && selectedRoom && !selectedInstallationType) ||
+                  (config.categoryLabel === 'Portail / Volet' && !selectedInstallationType) ||
+                  (config.categoryLabel === 'Sécurité' && (!selectedSecurityType || (selectedSecurityType === 'filaire' && !selectedInstallationType)))
+                }
               >
                 Ajouter prestation
               </button>

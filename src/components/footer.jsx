@@ -1,6 +1,14 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const Footer = () => {
+  const navigate = useNavigate();
+  
+  // Double-clic sur le copyright pour accéder à l'admin
+  const handleAdminAccess = () => {
+    navigate('/admin');
+  };
+
   return (
     <footer className="bg-gradient-to-r from-cyan-900 to-cyan-800 text-white">
       <div className="container mx-auto px-4 py-12">
@@ -95,7 +103,11 @@ const Footer = () => {
         <div className="border-t border-cyan-700 pt-8 mt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-4 md:mb-0">
-              <p className="text-cyan-300">
+              <p 
+                className="text-cyan-300 cursor-pointer select-none"
+                onDoubleClick={handleAdminAccess}
+                title="Double-cliquez pour accéder à l'administration"
+              >
                 &copy; {new Date().getFullYear()} QTB Electrotech. Tous droits réservés.
               </p>
             </div>

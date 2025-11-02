@@ -1,36 +1,34 @@
-import { materielPrestations } from '../data/materiel';
-
 // Calculer le total main d'œuvre HT
-export const calculateMainOeuvreTotal = (devisItems) => {
+const calculateMainOeuvreTotal = (devisItems) => {
   if (!devisItems || devisItems.length === 0) return 0;
   
   return devisItems.reduce((total, item) => 
     total + item.services.reduce((itemTotal, service) => 
-      itemTotal + service.priceHT, 0 // Utiliser directement le prix total calculé
+      itemTotal + service.priceHT, 0
     ), 0
   );
 };
 
 // Calculer le total matériel HT
-export const calculateMaterielTotal = (devisItems, serviceType) => {
+const calculateMaterielTotal = (devisItems, materielsData) => {
   if (!devisItems || devisItems.length === 0) return 0;
   
   return devisItems.reduce((total, item) => {
     let itemTotal = 0;
     item.services.forEach(service => {
-      const roomKey = Object.keys(materielPrestations[serviceType] || {}).find(room => 
+      const roomKey = Object.keys(materielsData || {}).find(room => 
         room === item.room.toLowerCase().replace(/\s+/g, '_')
       );
       
-      if (roomKey && materielPrestations[serviceType][roomKey]) {
-        const serviceKey = Object.keys(materielPrestations[serviceType][roomKey]).find(key => 
-          materielPrestations[serviceType][roomKey][key].some(mat => 
+      if (roomKey && materielsData[roomKey]) {
+        const serviceKey = Object.keys(materielsData[roomKey]).find(key => 
+          materielsData[roomKey][key].some(mat => 
             mat.nom.toLowerCase().includes(service.label.toLowerCase().split(' ')[0])
           )
         );
         
-        if (serviceKey && materielPrestations[serviceType][roomKey][serviceKey]) {
-          materielPrestations[serviceType][roomKey][serviceKey].forEach(material => {
+        if (serviceKey && materielsData[roomKey][serviceKey]) {
+          materielsData[roomKey][serviceKey].forEach(material => {
             itemTotal += material.quantite * material.prixHT * service.quantity;
           });
         }
@@ -41,7 +39,7 @@ export const calculateMaterielTotal = (devisItems, serviceType) => {
 };
 
 // Calculer la remise selon la main d'œuvre (10% tous les 1000€)
-export const calculateDiscount = (totalMainOeuvreHT) => {
+const calculateDiscount = (totalMainOeuvreHT) => {
   const discountMultiplier = Math.floor(totalMainOeuvreHT / 1000);
   const discountAmount = totalMainOeuvreHT * (discountMultiplier * 0.10);
   const discountPercentage = discountMultiplier * 10;
@@ -54,9 +52,9 @@ export const calculateDiscount = (totalMainOeuvreHT) => {
 };
 
 // Calculer les totaux généraux
-export const calculateTotals = (devisItems, serviceType, isCompany = false) => {
+const calculateTotals = (devisItems, materielsData, isCompany = false) => {
   const totalMainOeuvreHT = calculateMainOeuvreTotal(devisItems);
-  const totalMaterielHT = calculateMaterielTotal(devisItems, serviceType);
+  const totalMaterielHT = calculateMaterielTotal(devisItems, materielsData);
   
   // Calculer la remise sur la main d'œuvre
   const { discountAmount, discountPercentage, hasDiscount } = calculateDiscount(totalMainOeuvreHT);
@@ -84,26 +82,26 @@ export const calculateTotals = (devisItems, serviceType, isCompany = false) => {
 };
 
 // Collecter tous les matériaux nécessaires
-export const collectAllMaterials = (devisItems, serviceType) => {
+const collectAllMaterials = (devisItems, materielsData) => {
   const allMaterials = [];
   
   if (!devisItems || devisItems.length === 0) return allMaterials;
   
   devisItems.forEach((item) => {
     item.services.forEach((service) => {
-      const roomKey = Object.keys(materielPrestations[serviceType] || {}).find(room => 
+      const roomKey = Object.keys(materielsData || {}).find(room => 
         room === item.room.toLowerCase().replace(/\s+/g, '_')
       );
       
-      if (roomKey && materielPrestations[serviceType][roomKey]) {
-        const serviceKey = Object.keys(materielPrestations[serviceType][roomKey]).find(key => 
-          materielPrestations[serviceType][roomKey][key].some(mat => 
+      if (roomKey && materielsData[roomKey]) {
+        const serviceKey = Object.keys(materielsData[roomKey]).find(key => 
+          materielsData[roomKey][key].some(mat => 
             mat.nom.toLowerCase().includes(service.label.toLowerCase().split(' ')[0])
           )
         );
         
-        if (serviceKey && materielPrestations[serviceType][roomKey][serviceKey]) {
-          materielPrestations[serviceType][roomKey][serviceKey].forEach(material => {
+        if (serviceKey && materielsData[roomKey][serviceKey]) {
+          materielsData[roomKey][serviceKey].forEach(material => {
             const existingMaterial = allMaterials.find(mat => mat.nom === material.nom);
             if (existingMaterial) {
               existingMaterial.quantite += material.quantite * service.quantity;
@@ -124,7 +122,7 @@ export const collectAllMaterials = (devisItems, serviceType) => {
 };
 
 // Créer les lignes du tableau main d'œuvre
-export const createMainOeuvreRows = (devisItems, isCompany = false) => {
+const createMainOeuvreRows = (devisItems, isCompany = false) => {
   const mainOeuvreRows = [];
   const tvaRate = isCompany ? 0.20 : 0.10;
   const tvaPercentage = isCompany ? '20%' : '10%';
@@ -132,7 +130,7 @@ export const createMainOeuvreRows = (devisItems, isCompany = false) => {
   if (devisItems && devisItems.length > 0) {
     devisItems.forEach((item) => 
       item.services.forEach((service, serviceIndex) => {
-        const totalHT = service.priceHT; // Utiliser directement le prix total calculé
+        const totalHT = service.priceHT;
         const tva = totalHT * tvaRate;
         const totalTTC = totalHT + tva;
         const isFirstService = serviceIndex === 0;
@@ -157,7 +155,7 @@ export const createMainOeuvreRows = (devisItems, isCompany = false) => {
 };
 
 // Créer les lignes du tableau matériel
-export const createMaterielRows = (allMaterials) => {
+const createMaterielRows = (allMaterials) => {
   const materielRows = [];
   const tvaRate = 0.20; // Matériel toujours à 20%
   const tvaPercentage = '20%';
@@ -182,3 +180,15 @@ export const createMaterielRows = (allMaterials) => {
   
   return materielRows;
 };
+
+module.exports = {
+  calculateMainOeuvreTotal,
+  calculateMaterielTotal,
+  calculateDiscount,
+  calculateTotals,
+  collectAllMaterials,
+  createMainOeuvreRows,
+  createMaterielRows
+};
+
+
