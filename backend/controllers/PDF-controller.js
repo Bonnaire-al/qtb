@@ -2,6 +2,7 @@ const { generatePDFBuffer, generatePDFBase64 } = require('../utils/pdfGenerator'
 const MaterielModel = require('../models/M-model');
 const PrestationModel = require('../models/P-model');
 const PrixCalculs = require('../utils/prixCalculs');
+const CalculMateriel = require('../utils/calculMateriel');
 
 class PDFController {
   // Calculer les prix pour tous les services du devis
@@ -23,13 +24,16 @@ class PDFController {
                 return { ...service, prixBase: 0, priceHT: 0 };
               }
 
+              // Calculer le coefficient d'installation
+              const coefficient = PrixCalculs.getInstallationCoefficient(item.serviceType, item.installationType);
+
               // Calculer le prix total selon le type de service et la quantité
               const totalPrice = this.calculateServicePrice(
                 service.label,
                 item.serviceType,
                 prixData.prix_ht,
                 service.quantity,
-                item.coefficient
+                coefficient
               );
 
               return {
@@ -128,15 +132,35 @@ class PDFController {
       // ✅ CALCULER LES PRIX ICI (backend) avant de générer le PDF
       const devisItemsWithPrices = await PDFController.calculateDevisItemsPrices(devisItems);
       
-      const allMaterials = await MaterielModel.getAll();
-      const materielsData = PDFController.organizeMaterialsData(allMaterials);
-      const pdfBase64 = await generatePDFBase64(formData, devisItemsWithPrices, materielsData);
-      
-      res.json({
-        success: true,
-        pdfData: `data:application/pdf;base64,${pdfBase64}`,
-        message: 'PDF généré avec succès'
-      });
+      // ✅ NOUVEAU : Calculer les matériels via prestation_materiel_config selon les quantités
+      try {
+        const materielsCalcules = await CalculMateriel.calculateDevisMateriels(devisItemsWithPrices, true);
+        console.log(`📦 Matériels calculés: ${materielsCalcules.materiels.length} matériels, Total HT: ${materielsCalcules.totalHT}€`);
+        
+        // Pour compatibilité, créer la structure materielsData (vide, juste pour la signature)
+        const materielsData = {};
+        
+        // Passer les matériels calculés au générateur PDF (via materielsData vide + materielsCalcules)
+        const pdfBase64 = await generatePDFBase64(formData, devisItemsWithPrices, materielsData, materielsCalcules);
+        
+        res.json({
+          success: true,
+          pdfData: `data:application/pdf;base64,${pdfBase64}`,
+          message: 'PDF généré avec succès'
+        });
+      } catch (materielError) {
+        console.warn('⚠️ Erreur calcul matériels via nouvelle méthode, utilisation méthode legacy:', materielError);
+        // Fallback vers ancienne méthode si nouvelle méthode échoue
+        const allMaterials = await MaterielModel.getAll();
+        const materielsData = PDFController.organizeMaterialsData(allMaterials);
+        const pdfBase64 = await generatePDFBase64(formData, devisItemsWithPrices, materielsData);
+        
+        res.json({
+          success: true,
+          pdfData: `data:application/pdf;base64,${pdfBase64}`,
+          message: 'PDF généré avec succès (méthode legacy)'
+        });
+      }
       
     } catch (error) {
       console.error('❌ Erreur génération PDF:', error);
@@ -161,17 +185,39 @@ class PDFController {
       // ✅ CALCULER LES PRIX ICI (backend) avant de générer le PDF
       const devisItemsWithPrices = await PDFController.calculateDevisItemsPrices(devisItems);
       
-      const allMaterials = await MaterielModel.getAll();
-      const materielsData = PDFController.organizeMaterialsData(allMaterials);
-      const pdfBuffer = await generatePDFBuffer(formData, devisItemsWithPrices, materielsData);
-      
-      const clientName = formData.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'client';
-      const date = new Date().toISOString().split('T')[0];
-      const fileName = `devis_${clientName}_${date}.pdf`;
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.send(pdfBuffer);
+      // ✅ NOUVEAU : Calculer les matériels via prestation_materiel_config selon les quantités
+      try {
+        const materielsCalcules = await CalculMateriel.calculateDevisMateriels(devisItemsWithPrices, true);
+        console.log(`📦 Matériels calculés: ${materielsCalcules.materiels.length} matériels, Total HT: ${materielsCalcules.totalHT}€`);
+        
+        // Pour compatibilité, créer la structure materielsData (vide, juste pour la signature)
+        const materielsData = {};
+        
+        // Passer les matériels calculés au générateur PDF
+        const pdfBuffer = await generatePDFBuffer(formData, devisItemsWithPrices, materielsData, materielsCalcules);
+        
+        const clientName = formData.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'client';
+        const date = new Date().toISOString().split('T')[0];
+        const fileName = `devis_${clientName}_${date}.pdf`;
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.send(pdfBuffer);
+      } catch (materielError) {
+        console.warn('⚠️ Erreur calcul matériels via nouvelle méthode, utilisation méthode legacy:', materielError);
+        // Fallback vers ancienne méthode si nouvelle méthode échoue
+        const allMaterials = await MaterielModel.getAll();
+        const materielsData = PDFController.organizeMaterialsData(allMaterials);
+        const pdfBuffer = await generatePDFBuffer(formData, devisItemsWithPrices, materielsData);
+        
+        const clientName = formData.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'client';
+        const date = new Date().toISOString().split('T')[0];
+        const fileName = `devis_${clientName}_${date}.pdf`;
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.send(pdfBuffer);
+      }
       
     } catch (error) {
       console.error('❌ Erreur téléchargement PDF:', error);

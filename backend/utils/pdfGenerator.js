@@ -101,12 +101,41 @@ const pdfStyles = {
 };
 
 // Fonction pour créer la définition du document PDF
-const createPdfDocument = (formData, devisItems, materielsData) => {
+const createPdfDocument = (formData, devisItems, materielsData, materielsCalcules = null) => {
   const isCompany = formData?.company && formData.company.trim() !== '';
-  const totals = calculateTotals(devisItems, materielsData, isCompany);
-  const allMaterials = collectAllMaterials(devisItems, materielsData);
+  
+  // NOUVEAU : Utiliser les matériels calculés si fournis, sinon ancienne méthode
+  let totals;
+  let materielRows;
+  
+  if (materielsCalcules && materielsCalcules.materiels && materielsCalcules.materiels.length > 0) {
+    // Utiliser les matériels calculés via prestation_materiel_config
+    
+    // Pour compatibilité, créer structure materielsData simplifiée
+    const materielsFormates = materielsCalcules.materiels.map(m => ({
+      nom: m.designation,
+      quantite: m.quantite,
+      prixHT: m.prixHT
+    }));
+    
+    materielRows = createMaterielRows(materielsFormates);
+    
+    // Calculer les totaux avec nouveaux matériels
+    const totalMaterielHT = materielsCalcules.totalHT || 0;
+    totals = calculateTotals(
+      devisItems,
+      {}, // materielsData vide (non utilisé pour compatibilité)
+      isCompany,
+      totalMaterielHT // Passer total matériel HT directement
+    );
+  } else {
+    // Ancienne méthode (fallback)
+    totals = calculateTotals(devisItems, materielsData, isCompany);
+    const allMaterials = collectAllMaterials(devisItems, materielsData);
+    materielRows = createMaterielRows(allMaterials);
+  }
+  
   const mainOeuvreRows = createMainOeuvreRows(devisItems, isCompany);
-  const materielRows = createMaterielRows(allMaterials);
 
   return {
     pageSize: 'A4',
@@ -384,10 +413,10 @@ const createPdfDocument = (formData, devisItems, materielsData) => {
 };
 
 // Fonction pour générer le PDF et retourner le buffer
-const generatePDFBuffer = (formData, devisItems, materielsData) => {
+const generatePDFBuffer = (formData, devisItems, materielsData, materielsCalcules = null) => {
   return new Promise((resolve, reject) => {
     try {
-      const docDefinition = createPdfDocument(formData, devisItems, materielsData);
+      const docDefinition = createPdfDocument(formData, devisItems, materielsData, materielsCalcules);
       const pdfDoc = pdfMake.createPdf(docDefinition);
       
       pdfDoc.getBuffer((buffer) => {
@@ -400,10 +429,10 @@ const generatePDFBuffer = (formData, devisItems, materielsData) => {
 };
 
 // Fonction pour générer le PDF en base64
-const generatePDFBase64 = (formData, devisItems, materielsData) => {
+const generatePDFBase64 = (formData, devisItems, materielsData, materielsCalcules = null) => {
   return new Promise((resolve, reject) => {
     try {
-      const docDefinition = createPdfDocument(formData, devisItems, materielsData);
+      const docDefinition = createPdfDocument(formData, devisItems, materielsData, materielsCalcules);
       const pdfDoc = pdfMake.createPdf(docDefinition);
       
       pdfDoc.getBase64((data) => {

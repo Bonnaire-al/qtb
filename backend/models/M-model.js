@@ -1,192 +1,195 @@
 const db = require('../config/database');
 
 class MaterielModel {
-  // Récupérer tout le matériel avec les prestations associées
   static getAll() {
     return new Promise((resolve, reject) => {
-      db.all('SELECT * FROM materiel ORDER BY service_value, nom', [], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
+      db.all(
+        'SELECT id, code, designation, qte_dynamique, prix_ht, couleur FROM materiel ORDER BY couleur, code',
+        [],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
     });
   }
 
-  // Récupérer le matériel par catégorie (via les prestations)
-  static getByCategorie(categorie) {
+  static getByCode(code) {
     return new Promise((resolve, reject) => {
-      // D'abord, vérifier si la table materiel existe et récupérer tout le matériel
-      // Ensuite, filtrer côté backend selon les prestations de la catégorie
-      db.all('SELECT * FROM materiel ORDER BY service_value, nom', [], (err, allMateriel) => {
+      db.get(
+        'SELECT id, code, designation, qte_dynamique, prix_ht, couleur FROM materiel WHERE code = ?',
+        [code],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row || null);
+        }
+      );
+    });
+  }
+
+  static getManyByCodes(codes = []) {
+    return new Promise((resolve, reject) => {
+      if (!codes || codes.length === 0) {
+        return resolve([]);
+      }
+
+      const placeholders = codes.map(() => '?').join(',');
+      // Vérifier si la colonne type_produit existe, sinon utiliser une valeur par défaut
+      db.all(
+        `SELECT id, code, designation, qte_dynamique, prix_ht, couleur
+         FROM materiel
+         WHERE code IN (${placeholders})
+         ORDER BY couleur, code`,
+        codes,
+        (err, rows) => {
+          if (err) {
+            reject(err);
+          } else {
+            // Ajouter type_produit basé sur le code (si commence par 'fou' = fourniture)
+            const rowsWithType = (rows || []).map(row => {
+              const code = row.code || '';
+              return {
+                ...row,
+                type_produit: code.toLowerCase().startsWith('fou') ? 'fourniture' : 'materiel'
+              };
+            });
+            resolve(rowsWithType);
+          }
+        }
+      );
+    });
+  }
+
+  static async create(data) {
+    const { code, designation, qte_dynamique, prix_ht, couleur } = data;
+
+    const finalDesignation = (designation || '').trim();
+    if (!finalDesignation) {
+      throw new Error('La désignation du matériel est obligatoire.');
+    }
+
+    const finalCode = (code || '').trim() || (await this.generateCode(finalDesignation));
+    const qteDynamiqueFlag = qte_dynamique ? 1 : 0;
+    const prix = typeof prix_ht === 'number' ? prix_ht : Number(prix_ht) || 0;
+    
+    // Validation de la couleur
+    const validColors = ['gris', 'vert', 'orange', 'rouge', 'violet', 'bleu_fonce', 'bleu_moyen', 'bleu_clair', 'bleu_marine'];
+    const finalCouleur = couleur && validColors.includes(couleur) ? couleur : 'gris';
+
+    return new Promise((resolve, reject) => {
+      db.run(
+        `
+        INSERT INTO materiel (code, designation, qte_dynamique, prix_ht, couleur, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `,
+        [finalCode, finalDesignation, qteDynamiqueFlag, prix, finalCouleur],
+        function (err) {
+          if (err) {
+            if (err.message.includes('UNIQUE constraint failed')) {
+              return reject(new Error(`Le code ${finalCode} existe déjà.`));
+            }
+            return reject(err);
+          }
+
+          db.get(
+            'SELECT id, code, designation, qte_dynamique, prix_ht, couleur FROM materiel WHERE id = ?',
+            [this.lastID],
+            (selectErr, row) => {
+              if (selectErr) reject(selectErr);
+              else resolve(row);
+            }
+          );
+        }
+      );
+    });
+  }
+
+  static update(id, data) {
+    const updates = [];
+    const values = [];
+
+    if (data.code !== undefined) {
+      updates.push('code = ?');
+      values.push(data.code.trim());
+    }
+    if (data.designation !== undefined) {
+      const designation = data.designation.trim();
+      if (!designation) {
+        return Promise.reject(new Error('La désignation du matériel est obligatoire.'));
+      }
+      updates.push('designation = ?');
+      values.push(designation);
+    }
+    if (data.qte_dynamique !== undefined) {
+      updates.push('qte_dynamique = ?');
+      values.push(data.qte_dynamique ? 1 : 0);
+    }
+    if (data.prix_ht !== undefined) {
+      const prix = typeof data.prix_ht === 'number' ? data.prix_ht : Number(data.prix_ht) || 0;
+      updates.push('prix_ht = ?');
+      values.push(prix);
+    }
+    if (data.couleur !== undefined) {
+      // Validation de la couleur
+      const validColors = ['gris', 'vert', 'orange', 'rouge', 'violet', 'bleu_fonce', 'bleu_moyen', 'bleu_clair', 'bleu_marine'];
+      const couleur = validColors.includes(data.couleur) ? data.couleur : 'gris';
+      updates.push('couleur = ?');
+      values.push(couleur);
+    }
+
+    if (updates.length === 0) {
+      return Promise.reject(new Error('Aucune modification à appliquer.'));
+    }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+
+    values.push(id);
+
+    return new Promise((resolve, reject) => {
+      const query = `UPDATE materiel SET ${updates.join(', ')} WHERE id = ?`;
+      db.run(query, values, function (err) {
         if (err) {
-          console.error('❌ Erreur lors de la récupération de tout le matériel:', err);
-          // Si la table n'existe pas encore, retourner un tableau vide
-          if (err.message && err.message.includes('no such table')) {
-            console.warn('⚠️ Table materiel n\'existe pas encore');
-            return resolve([]);
+          if (err.message.includes('UNIQUE constraint failed') && data.code) {
+            return reject(new Error(`Le code ${data.code} existe déjà.`));
           }
           return reject(err);
         }
-        
-        // Si aucun matériel, retourner un tableau vide
-        if (allMateriel.length === 0) {
-          return resolve([]);
-        }
-        
-        // Récupérer les prestations de cette catégorie
-        db.all('SELECT DISTINCT service_value FROM prestations WHERE categorie = ?', [categorie], (err, prestations) => {
-          if (err) {
-            console.error('❌ Erreur lors de la récupération des prestations:', err);
-            // En cas d'erreur, retourner quand même tout le matériel filtré côté serveur
-            const processedRows = allMateriel.map(row => ({
-              ...row,
-              service_values: row.service_value ? row.service_value.split(',').map(s => s.trim()).filter(s => s) : []
-            }));
-            return resolve(processedRows);
+
+        db.get(
+          'SELECT id, code, designation, qte_dynamique, prix_ht, couleur FROM materiel WHERE id = ?',
+          [id],
+          (selectErr, row) => {
+            if (selectErr) reject(selectErr);
+            else resolve(row);
           }
-          
-          if (prestations.length === 0) {
-            // Aucune prestation pour cette catégorie, retourner un tableau vide
-            return resolve([]);
-          }
-          
-          // Récupérer les service_values des prestations
-          const serviceValues = prestations.map(p => p.service_value);
-          
-          // Filtrer le matériel dont le service_value contient au moins un service_value des prestations
-          const filteredMateriel = allMateriel.filter(m => {
-            if (!m.service_value) return false;
-            const materielServiceValues = m.service_value.split(',').map(s => s.trim()).filter(s => s);
-            // Vérifier si au moins un service_value du matériel correspond à une prestation
-            return materielServiceValues.some(msv => serviceValues.includes(msv));
-          });
-          
-          try {
-            // Convertir service_value en array pour faciliter l'affichage
-            const processedRows = filteredMateriel.map(row => ({
-              ...row,
-              service_values: row.service_value ? row.service_value.split(',').map(s => s.trim()).filter(s => s) : []
-            }));
-            resolve(processedRows);
-          } catch (processErr) {
-            console.error('❌ Erreur lors du traitement des données:', processErr);
-            // Retourner les données brutes en cas d'erreur de traitement
-            resolve(filteredMateriel);
-          }
-        });
+        );
       });
     });
   }
 
-  // Récupérer le matériel par service_value
-  static getByServiceValue(serviceValue) {
-    return new Promise((resolve, reject) => {
-      db.all('SELECT * FROM materiel WHERE service_value LIKE ? ORDER BY nom', [`%${serviceValue}%`], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-  }
-
-  // Récupérer le matériel pour une prestation (via service_value)
-  static getByPrestationServiceValue(serviceValue) {
-    return new Promise((resolve, reject) => {
-      const query = `
-        SELECT m.* FROM materiel m
-        WHERE m.service_value = ?
-        ORDER BY m.nom
-      `;
-      db.all(query, [serviceValue], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-  }
-
-  // Récupérer le matériel par type_application
-  static getByTypeApplication(typeApplication) {
-    return new Promise((resolve, reject) => {
-      db.all('SELECT * FROM materiel WHERE type_application = ? ORDER BY service_value, nom', [typeApplication], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-  }
-
-  // Récupérer le matériel par type_produit
-  static getByTypeProduit(typeProduit) {
-    return new Promise((resolve, reject) => {
-      db.all('SELECT * FROM materiel WHERE type_produit = ? ORDER BY service_value, nom', [typeProduit], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-  }
-
-  // Ajouter du matériel
-  static create(data) {
-    return new Promise((resolve, reject) => {
-      const { nom, service_value, type_produit, prix_ht, categorie } = data;
-      // service_value peut être une chaîne de valeurs séparées par des virgules
-      const query = 'INSERT INTO materiel (nom, service_value, type_produit, prix_ht) VALUES (?, ?, ?, ?)';
-      db.run(query, [nom, service_value || '', type_produit || 'materiel', prix_ht || 0], function(err) {
-        if (err) reject(err);
-        else {
-          // Retourner les données créées
-          db.get('SELECT * FROM materiel WHERE id = ?', [this.lastID], (err, row) => {
-            if (err) reject(err);
-            else {
-              const processedRow = {
-                ...row,
-                service_values: row.service_value ? row.service_value.split(',').map(s => s.trim()) : []
-              };
-              resolve(processedRow);
-            }
-          });
-        }
-      });
-    });
-  }
-
-  // Mettre à jour du matériel
-  static update(id, data) {
-    return new Promise((resolve, reject) => {
-      const { nom, service_value, type_produit, prix_ht } = data;
-      const query = 'UPDATE materiel SET nom = ?, service_value = ?, type_produit = ?, prix_ht = ? WHERE id = ?';
-      db.run(query, [nom, service_value || '', type_produit || 'materiel', prix_ht || 0, id], function(err) {
-        if (err) reject(err);
-        else {
-          // Retourner les données mises à jour
-          db.get('SELECT * FROM materiel WHERE id = ?', [id], (err, row) => {
-            if (err) reject(err);
-            else {
-              const processedRow = {
-                ...row,
-                service_values: row.service_value ? row.service_value.split(',').map(s => s.trim()) : []
-              };
-              resolve(processedRow);
-            }
-          });
-        }
-      });
-    });
-  }
-
-  // Supprimer du matériel
   static delete(id) {
     return new Promise((resolve, reject) => {
-      db.run('DELETE FROM materiel WHERE id = ?', [id], function(err) {
+      db.run('DELETE FROM materiel WHERE id = ?', [id], function (err) {
         if (err) reject(err);
         else resolve({ deleted: this.changes });
       });
     });
   }
 
-  // Récupérer toutes les prestations disponibles pour les select
-  static async getAvailablePrestations() {
+  static generateCode(baseDesignation) {
     return new Promise((resolve, reject) => {
-      db.all('SELECT DISTINCT service_value, service_label FROM prestations ORDER BY service_value', [], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
+      const prefix = baseDesignation
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/gi, '')
+        .toUpperCase()
+        .slice(0, 3)
+        .padEnd(3, 'M');
+
+      db.get('SELECT MAX(id) as maxId FROM materiel', [], (err, row) => {
+        if (err) return reject(err);
+        const next = (row?.maxId || 0) + 1;
+        resolve(`${prefix}${String(next).padStart(4, '0')}`);
       });
     });
   }

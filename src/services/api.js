@@ -2,42 +2,25 @@ const API_BASE_URL = 'http://localhost:5000/api';
 
 class ApiService {
   // ==================== MATÉRIEL ====================
-  
   static async getAllMateriel() {
     const response = await fetch(`${API_BASE_URL}/materiel`);
     if (!response.ok) throw new Error('Erreur lors de la récupération du matériel');
     return response.json();
   }
 
-  static async getAvailablePrestations() {
-    const response = await fetch(`${API_BASE_URL}/materiel/prestations`);
-    if (!response.ok) throw new Error('Erreur lors de la récupération des prestations');
+  static async getMaterielByCode(code) {
+    const response = await fetch(`${API_BASE_URL}/materiel/code/${code}`);
+    if (!response.ok) throw new Error(`Matériel ${code} introuvable`);
     return response.json();
   }
 
-  static async getMaterielByCategorie(categorie) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/materiel/categorie/${categorie}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
-        throw new Error(errorData.error || `Erreur ${response.status}: ${response.statusText}`);
-      }
-      return response.json();
-    } catch (error) {
-      console.error('❌ Erreur API getMaterielByCategorie:', error);
-      throw error;
-    }
-  }
-
-  static async getMaterielByServiceValue(serviceValue) {
-    const response = await fetch(`${API_BASE_URL}/materiel/service/${serviceValue}`);
-    if (!response.ok) throw new Error('Erreur lors de la récupération du matériel');
-    return response.json();
-  }
-
-  static async getMaterielByPrestationServiceValue(serviceValue) {
-    const response = await fetch(`${API_BASE_URL}/materiel/prestation/${serviceValue}`);
-    if (!response.ok) throw new Error('Erreur lors de la récupération du matériel');
+  static async getMaterielByCodes(codes = []) {
+    const response = await fetch(`${API_BASE_URL}/materiel/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codes })
+    });
+    if (!response.ok) throw new Error('Erreur lors de la récupération des matériels');
     return response.json();
   }
 
@@ -95,7 +78,10 @@ class ApiService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error('Erreur lors de la création de la prestation');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Erreur lors de la création de la prestation');
+    }
     return response.json();
   }
 
@@ -141,6 +127,63 @@ class ApiService {
     return response.json();
   }
 
+  // ==================== LIAISONS PRESTATION/MATÉRIEL ====================
+  static async getAllLiaisons() {
+    const response = await fetch(`${API_BASE_URL}/liaisons`);
+    if (!response.ok) throw new Error('Erreur lors de la récupération des liaisons');
+    return response.json();
+  }
+
+  static async getLiaisonByCode(code) {
+    const response = await fetch(`${API_BASE_URL}/liaisons/${code}`);
+    if (!response.ok) throw new Error('Erreur lors de la récupération de la liaison');
+    return response.json();
+  }
+
+  static async getLiaisonsByPrestation(prestationCode, typeInstallation) {
+    const response = await fetch(`${API_BASE_URL}/liaisons/prestation/${prestationCode}/${typeInstallation}`);
+    if (!response.ok) throw new Error('Erreur lors de la récupération des liaisons');
+    return response.json();
+  }
+
+  static async createLiaison(data) {
+    const response = await fetch(`${API_BASE_URL}/liaisons`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Erreur lors de la création de la liaison');
+    return response.json();
+  }
+
+  static async updateLiaison(id, data) {
+    const response = await fetch(`${API_BASE_URL}/liaisons/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Erreur lors de la mise à jour de la liaison');
+    return response.json();
+  }
+
+  static async deleteLiaison(id) {
+    const response = await fetch(`${API_BASE_URL}/liaisons/${id}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Erreur lors de la suppression de la liaison');
+    return response.json();
+  }
+
+  // ==================== PRESTATIONS PAR CODE ====================
+  
+  static async getPrestationByCode(code) {
+    const response = await fetch(`${API_BASE_URL}/prestations/code/${code}`);
+    if (!response.ok) throw new Error('Erreur lors de la récupération de la prestation');
+    return response.json();
+  }
+
+  // ==================== MATÉRIEL PAR CODE ====================
+  
   // ==================== PDF ====================
   
   static async generatePDF(formData, devisItems, serviceType) {

@@ -103,10 +103,22 @@ export const useFormLogic = (serviceType) => {
         !commonServices.some(common => common.value === specific.value)
       );
       
-      return [...mergedServices, ...remainingSpecific];
+      // Trier par ordre alphabétique selon le label
+      const allServices = [...mergedServices, ...remainingSpecific];
+      return allServices.sort((a, b) => {
+        const labelA = (a.label || '').toLowerCase();
+        const labelB = (b.label || '').toLowerCase();
+        return labelA.localeCompare(labelB, 'fr', { sensitivity: 'base' });
+      });
     }
     
-    return currentServicesByRoom[roomValue] || [];
+    // Pour les autres types, trier aussi par ordre alphabétique
+    const services = currentServicesByRoom[roomValue] || [];
+    return services.sort((a, b) => {
+      const labelA = (a.label || '').toLowerCase();
+      const labelB = (b.label || '').toLowerCase();
+      return labelA.localeCompare(labelB, 'fr', { sensitivity: 'base' });
+    });
   };
 
 

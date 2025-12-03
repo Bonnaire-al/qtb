@@ -128,14 +128,21 @@ const ServiceCheckboxList = ({
                                       (hasSpecificServices && hasSelectedServices && config.categoryLabel === 'Portail / Volet') ||
                                       (hasSpecificServices && hasSelectedServices && isSecurity && selectedSecurityType === 'filaire');
 
-  // Services mémorisés pour éviter les recalculs
+  // Services mémorisés pour éviter les recalculs (triés par ordre alphabétique)
   const services = useMemo(() => {
+    let servicesList = [];
     if (hasRooms && selectedRoom) {
-      return getServicesForRoom(selectedRoom);
+      servicesList = getServicesForRoom(selectedRoom);
     } else if (hasSpecificServices) {
-      return currentSpecificServices;
+      servicesList = currentSpecificServices;
     }
-    return [];
+    
+    // Trier par ordre alphabétique (au cas où getServicesForRoom ne l'aurait pas fait)
+    return servicesList.sort((a, b) => {
+      const labelA = (a.label || '').toLowerCase();
+      const labelB = (b.label || '').toLowerCase();
+      return labelA.localeCompare(labelB, 'fr', { sensitivity: 'base' });
+    });
   }, [hasRooms, selectedRoom, hasSpecificServices, currentSpecificServices, getServicesForRoom]);
 
   // Titre mémorisé

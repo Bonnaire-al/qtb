@@ -1,6 +1,21 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ApiService from '../../services/api';
 
+// Mapping des couleurs pour les matériels
+const COULEURS_MATERIEL = {
+  'gris': { hex: '#6b7280', label: 'Neutre' },
+  'vert': { hex: '#10b981', label: 'Domotique' },
+  'orange': { hex: '#f59e0b', label: 'Installation' },
+  'rouge': { hex: '#ef4444', label: 'Sécurité' },
+  'violet': { hex: '#8b5cf6', label: 'Portail' },
+  'bleu_fonce': { hex: '#1e40af', label: 'Saignée/Encastré' },
+  'bleu_moyen': { hex: '#3b82f6', label: 'Saillie/Moulure' },
+  'bleu_clair': { hex: '#60a5fa', label: 'Cloison creuse' },
+  'bleu_marine': { hex: '#1e3a8a', label: 'Alimentation existante' }
+};
+
+const COULEURS_DISPO = Object.keys(COULEURS_MATERIEL);
+
 // Hook personnalisé pour la gestion des données (Matériel/Prestations)
 const useDataManagement = (apiService, initialCategory = '') => {
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
@@ -288,6 +303,19 @@ const Admin = () => {
               Prestations
             </button>
             <button
+              onClick={() => setActiveTab('config')}
+              className={`${
+                activeTab === 'config'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+              Configuration
+            </button>
+            <button
               onClick={() => setActiveTab('devis')}
               className={`${
                 activeTab === 'devis'
@@ -307,6 +335,7 @@ const Admin = () => {
         <div className="mt-8 pb-8">
           {activeTab === 'materiel' && <MaterielManager />}
           {activeTab === 'prestation' && <PrestationManager />}
+          {activeTab === 'config' && <ConfigManager />}
           {activeTab === 'devis' && <DevisManager quotes={savedQuotes} setQuotes={setSavedQuotes} />}
         </div>
       </div>
@@ -316,85 +345,130 @@ const Admin = () => {
 
 // Composant de gestion du matériel
 const MaterielManager = () => {
-  const [selectedCategory, setSelectedCategory] = useState('domotique');
   const [materielList, setMaterielList] = useState([]);
-  const [availablePrestations, setAvailablePrestations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
   const [newItem, setNewItem] = useState({
-    categorie: 'domotique',
-    nom: '',
-    service_values: [],
-    type_produit: 'materiel',
-    prix_ht: 0
+    code: '',
+    designation: '',
+    qte_dynamique: true,
+    prix_ht: '0',
+    couleur: 'gris'
   });
+  const [filterCouleur, setFilterCouleur] = useState('');
+  const [editingItem, setEditingItem] = useState(null);
 
-  const categories = ['domotique', 'installation', 'portail', 'securite'];
+  const resetNewItem = useCallback(() => {
+    setNewItem({
+      code: '',
+      designation: '',
+      qte_dynamique: true,
+      prix_ht: '0',
+      couleur: 'gris'
+    });
+  }, []);
 
-  // Charger les prestations disponibles selon la catégorie
+  const loadMateriel = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await ApiService.getAllMateriel();
+      const formatted = (data || []).map(item => ({
+        ...item,
+        qte_dynamique: item.qte_dynamique === true || item.qte_dynamique === 1,
+        prix_ht: typeof item.prix_ht === 'number' ? item.prix_ht : Number(item.prix_ht) || 0,
+        couleur: item.couleur || 'gris'
+      }));
+      setMaterielList(formatted);
+    } catch (err) {
+      const message = err.message || 'Erreur lors de la récupération du matériel';
+      setError(message);
+      console.error('❌ Chargement du matériel:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const loadPrestations = async () => {
-      try {
-        const prestations = await ApiService.getPrestationsByCategorie(selectedCategory);
-        setAvailablePrestations(prestations);
-      } catch (err) {
-        console.error('Erreur lors du chargement des prestations:', err);
-      }
-    };
-    loadPrestations();
-  }, [selectedCategory]);
+    loadMateriel();
+  }, [loadMateriel]);
 
-  // Charger les données du matériel selon la catégorie
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const materiel = await ApiService.getMaterielByCategorie(selectedCategory);
-        setMaterielList(materiel || []);
-      } catch (err) {
-        const errorMessage = err.message || 'Erreur lors de la récupération du matériel';
-        setError(errorMessage);
-        console.error('❌ Erreur lors du chargement des données:', err);
-        console.error('Détails:', err);
-        
-        // Afficher un message d'erreur plus détaillé dans la console
-        if (err.message && err.message.includes('Erreur lors de la récupération du matériel')) {
-          console.warn('⚠️ La table materiel pourrait ne pas exister ou avoir besoin d\'être migrée');
-          console.warn('💡 Essayez d\'exécuter: node backend/migrations/restructure-materiel-table.js');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, [selectedCategory]);
+  const parsePrix = (value) => {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) return;
     try {
       await ApiService.deleteMateriel(id);
-      const materiel = await ApiService.getMaterielByCategorie(selectedCategory);
-      setMaterielList(materiel || []);
+      await loadMateriel();
     } catch (err) {
       alert(`Erreur lors de la suppression : ${err.message}`);
     }
   };
 
+  const handleOpenAddModal = () => {
+    resetNewItem();
+    setShowAddModal(true);
+  };
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    resetNewItem();
+  };
+
+  const handleNewItemChange = (field, value) => {
+    if (field === 'qte_dynamique') {
+      setNewItem(prev => ({ ...prev, qte_dynamique: value }));
+    } else {
+      setNewItem(prev => ({ ...prev, [field]: value }));
+    }
+  };
+
+  const handleSubmitAdd = async (e) => {
+    e.preventDefault();
+    if (!newItem.designation.trim()) {
+      alert('Veuillez renseigner la désignation du matériel');
+      return;
+    }
+
+    try {
+      await ApiService.createMateriel({
+        code: newItem.code.trim(),
+        designation: newItem.designation.trim(),
+        qte_dynamique: newItem.qte_dynamique,
+        prix_ht: parsePrix(newItem.prix_ht),
+        couleur: newItem.couleur || 'gris'
+      });
+      handleCloseAddModal();
+      await loadMateriel();
+    } catch (err) {
+      alert(`Erreur lors de l'ajout : ${err.message}`);
+    }
+  };
+
   const handleEdit = (item) => {
-    // Convertir service_value (string ou array) en array pour l'édition
-    const serviceValues = Array.isArray(item.service_values) 
-      ? item.service_values 
-      : (item.service_value ? (typeof item.service_value === 'string' ? item.service_value.split(',').map(s => s.trim()) : [item.service_value]) : []);
-    
     setEditingItem({
       ...item,
-      service_values: serviceValues
+      code: item.code || '',
+      designation: item.designation || '',
+      qte_dynamique: item.qte_dynamique === true || item.qte_dynamique === 1,
+      prix_ht: (item.prix_ht ?? 0).toString(),
+      couleur: item.couleur || 'gris'
     });
     setShowEditModal(true);
+  };
+
+  const handleEditChange = (field, value) => {
+    if (!editingItem) return;
+    if (field === 'qte_dynamique') {
+      setEditingItem(prev => ({ ...prev, qte_dynamique: value }));
+    } else {
+      setEditingItem(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleCloseEditModal = () => {
@@ -402,124 +476,55 @@ const MaterielManager = () => {
     setEditingItem(null);
   };
 
-  if (loading) return <div className="text-center py-8">Chargement...</div>;
+  const handleSubmitEdit = async (e) => {
+    e.preventDefault();
+    if (!editingItem?.designation?.trim()) {
+      alert('Veuillez renseigner la désignation du matériel');
+      return;
+    }
+
+    try {
+      await ApiService.updateMateriel(editingItem.id, {
+        code: editingItem.code.trim(),
+        designation: editingItem.designation.trim(),
+        qte_dynamique: editingItem.qte_dynamique,
+        prix_ht: parsePrix(editingItem.prix_ht),
+        couleur: editingItem.couleur || 'gris'
+      });
+      handleCloseEditModal();
+      await loadMateriel();
+    } catch (err) {
+      alert(`Erreur lors de la mise à jour : ${err.message}`);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Chargement...</div>;
+  }
+
   if (error) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="text-center py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
-            <p className="text-red-600 font-semibold mb-2">Erreur : {error}</p>
-            <p className="text-red-500 text-sm">
-              La table materiel pourrait nécessiter une migration.
-              <br />
-              Vérifiez la console du serveur pour plus de détails.
-            </p>
-            <p className="text-xs text-gray-500 mt-2">
-              Si la table materiel n'existe pas encore avec la nouvelle structure,
-              <br />
-              exécutez: <code className="bg-gray-100 px-1 rounded">node backend/migrations/restructure-materiel-table.js</code>
-            </p>
-          </div>
+        <div className="text-center py-6 text-red-600">
+          {error}
         </div>
       </div>
     );
   }
 
-  const handleOpenAddModal = () => {
-    setNewItem({
-      categorie: selectedCategory,
-      nom: '',
-      service_values: [],
-      type_produit: 'materiel',
-      prix_ht: 0
-    });
-    setShowAddModal(true);
-  };
+  const renderQteLabel = (value) => (value ? 'OUI' : 'NON');
 
-  const handleCloseAddModal = () => {
-    setShowAddModal(false);
-    setNewItem({
-      categorie: selectedCategory,
-      nom: '',
-      service_values: [],
-      type_produit: 'materiel',
-      prix_ht: 0
-    });
-  };
-
-  const handleNewItemChange = (field, value) => {
-    setNewItem(prev => ({
-      ...prev,
-      [field]: field === 'prix_ht' ? parseFloat(value) || 0 : value
-    }));
-  };
-
-  const handleServiceValueToggle = (serviceValue, isEdit = false) => {
-    if (isEdit) {
-      setEditingItem(prev => {
-        const currentValues = prev.service_values || [];
-        const newValues = currentValues.includes(serviceValue)
-          ? currentValues.filter(v => v !== serviceValue)
-          : [...currentValues, serviceValue];
-        return { ...prev, service_values: newValues };
-      });
-    } else {
-      setNewItem(prev => {
-        const currentValues = prev.service_values || [];
-        const newValues = currentValues.includes(serviceValue)
-          ? currentValues.filter(v => v !== serviceValue)
-          : [...currentValues, serviceValue];
-        return { ...prev, service_values: newValues };
-      });
-    }
-  };
-
-  const handleSubmitAdd = async (e) => {
-    e.preventDefault();
-    try {
-      if (!newItem.nom || !newItem.service_values || newItem.service_values.length === 0) {
-        alert('Veuillez remplir tous les champs obligatoires');
-        return;
-      }
-      const dataToSend = {
-        ...newItem,
-        service_value: newItem.service_values.join(',')
-      };
-      await ApiService.createMateriel(dataToSend);
-      const materiel = await ApiService.getMaterielByCategorie(selectedCategory);
-      setMaterielList(materiel || []);
-      handleCloseAddModal();
-    } catch (err) {
-      alert(`Erreur lors de l'ajout : ${err.message}`);
-    }
-  };
-
-  const handleSubmitEdit = async (e) => {
-    e.preventDefault();
-    try {
-      if (!editingItem.nom || !editingItem.service_values || editingItem.service_values.length === 0) {
-        alert('Veuillez remplir tous les champs obligatoires');
-        return;
-      }
-      const dataToSend = {
-        ...editingItem,
-        service_value: editingItem.service_values.join(',')
-      };
-      await ApiService.updateMateriel(editingItem.id, dataToSend);
-      const materiel = await ApiService.getMaterielByCategorie(selectedCategory);
-      setMaterielList(materiel || []);
-      handleCloseEditModal();
-    } catch (err) {
-      alert(`Erreur lors de la mise à jour : ${err.message}`);
-    }
-  };
+  // Filtrer par couleur
+  const filteredMaterielList = filterCouleur
+    ? materielList.filter(item => (item.couleur || 'gris') === filterCouleur)
+    : materielList;
 
   return (
     <>
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900">Gestion du Matériel</h2>
-          <button 
+          <button
             onClick={handleOpenAddModal}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
           >
@@ -530,143 +535,143 @@ const MaterielManager = () => {
           </button>
         </div>
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
+        {/* Filtre par couleur */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Filtrer par couleur</label>
           <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            value={filterCouleur}
+            onChange={(e) => setFilterCouleur(e.target.value)}
             className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
+            <option value="">Toutes les couleurs</option>
+            {COULEURS_DISPO.map(couleur => (
+              <option key={couleur} value={couleur}>
+                {COULEURS_MATERIEL[couleur].label}
+              </option>
             ))}
           </select>
         </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom matériel</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service value (prestation)</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type produit</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prix HT (€)</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {materielList.map((item) => {
-              // Afficher les service_values (peut être string ou array)
-              const serviceValues = Array.isArray(item.service_values) 
-                ? item.service_values 
-                : (item.service_value ? (typeof item.service_value === 'string' ? item.service_value.split(',').map(s => s.trim()) : [item.service_value]) : []);
-              
-              const serviceValuesDisplay = serviceValues.map(sv => {
-                const presta = availablePrestations.find(p => p.service_value === sv);
-                return presta ? `${sv} (${presta.service_label})` : sv;
-              }).join(', ');
-              
-              return (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-900">{item.nom}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {serviceValuesDisplay || 'Aucun'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{item.type_produit === 'materiel' ? 'Matériel' : 'Fourniture'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{item.prix_ht ? item.prix_ht.toFixed(2) : '0.00'} €</td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button 
-                        onClick={() => handleEdit(item)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Modifier"
-                      >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(item.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Supprimer"
-                      >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Couleur</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Désignation</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qté dynamique</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prix HT (€)</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredMaterielList.map((item) => {
+                const couleurInfo = COULEURS_MATERIEL[item.couleur || 'gris'];
+                return (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-6 h-6 rounded-full border-2 border-gray-300"
+                          style={{ backgroundColor: couleurInfo.hex }}
+                          title={couleurInfo.label}
+                        />
+                        <span className="text-xs text-gray-600">{couleurInfo.label}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 font-mono">{item.code || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{item.designation}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{renderQteLabel(item.qte_dynamique)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{item.prix_ht.toFixed(2)} €</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Modifier"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Supprimer"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredMaterielList.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                    {materielList.length === 0 ? 'Aucun matériel enregistré pour le moment' : 'Aucun matériel ne correspond au filtre appliqué'}
                   </td>
                 </tr>
-              );
-            })}
-            {materielList.length === 0 && (
-              <tr>
-                <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                  Aucun matériel trouvé pour cette catégorie
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
 
-    {/* Modal d'ajout */}
-    {showAddModal && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Ajouter un matériel</h3>
-          <form onSubmit={handleSubmitAdd}>
-            <div className="space-y-4">
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ajouter un matériel</h3>
+            <form onSubmit={handleSubmitAdd} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom matériel *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Code matériel <span className="text-gray-500 text-xs">(optionnel)</span>
+                </label>
                 <input
                   type="text"
-                  value={newItem.nom}
-                  onChange={(e) => handleNewItemChange('nom', e.target.value)}
+                  value={newItem.code}
+                  onChange={(e) => handleNewItemChange('code', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  placeholder="MAT0001"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Désignation *</label>
+                <input
+                  type="text"
+                  value={newItem.designation}
+                  onChange={(e) => handleNewItemChange('designation', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nom du matériel"
+                  placeholder="Désignation du matériel"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Service value (prestation) *</label>
-                <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-2">
-                  {availablePrestations.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-2">Aucune prestation disponible pour cette catégorie</p>
-                  ) : (
-                    availablePrestations.map(presta => (
-                      <label key={presta.service_value} className="flex items-center space-x-2 p-2 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer text-sm">
-                        <input
-                          type="checkbox"
-                          checked={newItem.service_values.includes(presta.service_value)}
-                          onChange={() => handleServiceValueToggle(presta.service_value, false)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <span className="text-gray-700">
-                          <span className="font-medium">{presta.service_value}</span> - {presta.service_label}
-                        </span>
-                      </label>
-                    ))
-                  )}
+                <span className="block text-sm font-medium text-gray-700 mb-1">Quantité dynamique *</span>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="qte_dynamique_new"
+                      checked={newItem.qte_dynamique === true}
+                      onChange={() => handleNewItemChange('qte_dynamique', true)}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    OUI (multiplié par la quantité client)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="qte_dynamique_new"
+                      checked={newItem.qte_dynamique === false}
+                      onChange={() => handleNewItemChange('qte_dynamique', false)}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    NON (quantité fixe)
+                  </label>
                 </div>
-                {newItem.service_values.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {newItem.service_values.length} prestation(s) sélectionnée(s)
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type produit *</label>
-                <select
-                  value={newItem.type_produit}
-                  onChange={(e) => handleNewItemChange('type_produit', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="fourniture">Fourniture</option>
-                  <option value="materiel">Matériel</option>
-                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Prix HT (€) *</label>
@@ -680,83 +685,107 @@ const MaterielManager = () => {
                   required
                 />
               </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                type="button"
-                onClick={handleCloseAddModal}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Valider
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    )}
-
-    {/* Modal d'édition */}
-    {showEditModal && editingItem && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Modifier un matériel</h3>
-          <form onSubmit={handleSubmitEdit}>
-            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom matériel *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Couleur *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {COULEURS_DISPO.map(couleur => {
+                    const couleurInfo = COULEURS_MATERIEL[couleur];
+                    return (
+                      <label
+                        key={couleur}
+                        className={`flex items-center gap-2 p-2 border-2 rounded-lg cursor-pointer transition-colors ${
+                          newItem.couleur === couleur
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="couleur_new"
+                          value={couleur}
+                          checked={newItem.couleur === couleur}
+                          onChange={() => handleNewItemChange('couleur', couleur)}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <div
+                          className="w-5 h-5 rounded-full border border-gray-300"
+                          style={{ backgroundColor: couleurInfo.hex }}
+                        />
+                        <span className="text-xs text-gray-700">{couleurInfo.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseAddModal}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Valider
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && editingItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Modifier un matériel</h3>
+            <form onSubmit={handleSubmitEdit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Code matériel</label>
                 <input
                   type="text"
-                  value={editingItem.nom}
-                  onChange={(e) => setEditingItem({...editingItem, nom: e.target.value})}
+                  value={editingItem.code}
+                  onChange={(e) => handleEditChange('code', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  placeholder="MAT0001"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Désignation *</label>
+                <input
+                  type="text"
+                  value={editingItem.designation}
+                  onChange={(e) => handleEditChange('designation', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nom du matériel"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Service value (prestation) *</label>
-                <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-2">
-                  {availablePrestations.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-2">Aucune prestation disponible pour cette catégorie</p>
-                  ) : (
-                    availablePrestations.map(presta => (
-                      <label key={presta.service_value} className="flex items-center space-x-2 p-2 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer text-sm">
-                        <input
-                          type="checkbox"
-                          checked={editingItem.service_values.includes(presta.service_value)}
-                          onChange={() => handleServiceValueToggle(presta.service_value, true)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <span className="text-gray-700">
-                          <span className="font-medium">{presta.service_value}</span> - {presta.service_label}
-                        </span>
-                      </label>
-                    ))
-                  )}
+                <span className="block text-sm font-medium text-gray-700 mb-1">Quantité dynamique *</span>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="qte_dynamique_edit"
+                      checked={editingItem.qte_dynamique === true}
+                      onChange={() => handleEditChange('qte_dynamique', true)}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    OUI (multiplié par la quantité client)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="qte_dynamique_edit"
+                      checked={editingItem.qte_dynamique === false}
+                      onChange={() => handleEditChange('qte_dynamique', false)}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    NON (quantité fixe)
+                  </label>
                 </div>
-                {editingItem.service_values.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {editingItem.service_values.length} prestation(s) sélectionnée(s)
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type produit *</label>
-                <select
-                  value={editingItem.type_produit}
-                  onChange={(e) => setEditingItem({...editingItem, type_produit: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="fourniture">Fourniture</option>
-                  <option value="materiel">Matériel</option>
-                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Prix HT (€) *</label>
@@ -765,31 +794,434 @@ const MaterielManager = () => {
                   step="0.01"
                   min="0"
                   value={editingItem.prix_ht}
-                  onChange={(e) => setEditingItem({...editingItem, prix_ht: parseFloat(e.target.value) || 0})}
+                  onChange={(e) => handleEditChange('prix_ht', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                type="button"
-                onClick={handleCloseEditModal}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Modifier
-              </button>
-            </div>
-          </form>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Couleur *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {COULEURS_DISPO.map(couleur => {
+                    const couleurInfo = COULEURS_MATERIEL[couleur];
+                    return (
+                      <label
+                        key={couleur}
+                        className={`flex items-center gap-2 p-2 border-2 rounded-lg cursor-pointer transition-colors ${
+                          editingItem.couleur === couleur
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="couleur_edit"
+                          value={couleur}
+                          checked={editingItem.couleur === couleur}
+                          onChange={() => handleEditChange('couleur', couleur)}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <div
+                          className="w-5 h-5 rounded-full border border-gray-300"
+                          style={{ backgroundColor: couleurInfo.hex }}
+                        />
+                        <span className="text-xs text-gray-700">{couleurInfo.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseEditModal}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+// Composant de gestion de la configuration (liaisons prestation/matériel/type_installation)
+const ConfigManager = () => {
+  const [liaisons, setLiaisons] = useState([]);
+  const [prestations, setPrestations] = useState([]);
+  const [materiels, setMateriels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [filterPrestation, setFilterPrestation] = useState('');
+  const [filterTypeInstallation, setFilterTypeInstallation] = useState('');
+  const [newConfig, setNewConfig] = useState({
+    code: '',
+    prestation_code: '',
+    types_installation: [],
+    materiel_codes: []
+  });
+
+  const installationTypes = [
+    { value: 'saignee_encastre', label: 'Saignée / Encastré' },
+    { value: 'saillie_moulure', label: 'Saillie / Moulure' },
+    { value: 'cloison_creuse', label: 'Cloison creuse' },
+    { value: 'alimentation_existante', label: 'Alimentation existante' }
+  ];
+
+  const resetNewConfig = useCallback(() => {
+    setNewConfig({
+      code: '',
+      prestation_code: '',
+      types_installation: [],
+      materiel_codes: []
+    });
+  }, []);
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [liaisonsData, prestationsData, materielsData] = await Promise.all([
+        ApiService.getAllLiaisons(),
+        ApiService.getAllPrestations(),
+        ApiService.getAllMateriel()
+      ]);
+      setLiaisons(liaisonsData || []);
+      setPrestations(prestationsData || []);
+      setMateriels(materielsData || []);
+    } catch (err) {
+      const message = err.message || 'Erreur lors du chargement des liaisons';
+      setError(message);
+      console.error('❌ Chargement des liaisons:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const toggleTypeInstallation = (value) => {
+    setNewConfig(prev => {
+      const exists = prev.types_installation.includes(value);
+      return {
+        ...prev,
+        types_installation: exists
+          ? prev.types_installation.filter(t => t !== value)
+          : [...prev.types_installation, value]
+      };
+    });
+  };
+
+  const toggleMateriel = (code) => {
+    setNewConfig(prev => {
+      const exists = prev.materiel_codes.includes(code);
+      return {
+        ...prev,
+        materiel_codes: exists
+          ? prev.materiel_codes.filter(c => c !== code)
+          : [...prev.materiel_codes, code]
+      };
+    });
+  };
+
+  const handleSubmitAdd = async (e) => {
+    e.preventDefault();
+    if (!newConfig.prestation_code) {
+      alert('Veuillez sélectionner une prestation');
+      return;
+    }
+    if (newConfig.types_installation.length === 0) {
+      alert('Veuillez sélectionner au moins un type d\'installation');
+      return;
+    }
+    if (newConfig.materiel_codes.length === 0) {
+      alert('Veuillez sélectionner au moins un matériel');
+      return;
+    }
+
+    try {
+      const liaisonData = {
+        prestation_code: newConfig.prestation_code,
+        types_installation: newConfig.types_installation,
+        materiel_codes: newConfig.materiel_codes
+      };
+      
+      // N'envoyer le code que s'il est renseigné (sinon génération automatique côté backend)
+      if (newConfig.code.trim()) {
+        liaisonData.code = newConfig.code.trim();
+      }
+      
+      await ApiService.createLiaison(liaisonData);
+      setShowAddModal(false);
+      resetNewConfig();
+      await loadData();
+    } catch (err) {
+      alert(`Erreur lors de la création : ${err.message}`);
+    }
+  };
+
+  const handleDelete = async (liaisonId) => {
+    if (!window.confirm('Supprimer définitivement cette liaison ?')) return;
+    try {
+      await ApiService.deleteLiaison(liaisonId);
+      await loadData();
+    } catch (err) {
+      alert(`Erreur lors de la suppression : ${err.message}`);
+    }
+  };
+
+  const filteredLiaisons = liaisons.filter(liaison => {
+    if (filterPrestation && liaison.prestation_code !== filterPrestation) return false;
+    if (
+      filterTypeInstallation &&
+      !(Array.isArray(liaison.types_installation) && liaison.types_installation.includes(filterTypeInstallation))
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  const getConfigDetails = (liaison) => {
+    const prestation = prestations.find(p => p.code === liaison.prestation_code);
+    const typesLabels = (liaison.types_installation || []).map(typeValue =>
+      installationTypes.find(t => t.value === typeValue)?.label || typeValue
+    );
+    const materielLabels = (liaison.materiel_codes || []).map(code => {
+      const materiel = materiels.find(m => m.code === code);
+      return materiel ? `${materiel.code} - ${materiel.designation}` : code;
+    });
+
+    return {
+      prestationLabel: prestation ? `${prestation.code} - ${prestation.service_label}` : liaison.prestation_code,
+      typesLabel: typesLabels.join(', '),
+      materielsLabel: materielLabels.join('\n')
+    };
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Chargement...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-600">Erreur : {error}</div>;
+  }
+
+  return (
+    <>
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">Gestion des Liaisons</h2>
+          <button
+            onClick={() => {
+              resetNewConfig();
+              setShowAddModal(true);
+            }}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Ajouter une liaison
+          </button>
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Filtrer par prestation</label>
+            <select
+              value={filterPrestation}
+              onChange={(e) => setFilterPrestation(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Toutes les prestations</option>
+              {prestations.map(presta => (
+                <option key={presta.id} value={presta.code}>
+                  {presta.code} - {presta.service_label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Filtrer par type d'installation</label>
+            <select
+              value={filterTypeInstallation}
+              onChange={(e) => setFilterTypeInstallation(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Tous les types</option>
+              {installationTypes.map(type => (
+                <option key={type.value} value={type.value}>{type.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code liaison</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prestation</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Types d'installation</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Matériels associés</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredLiaisons.map((liaison) => {
+                const details = getConfigDetails(liaison);
+                return (
+                  <tr key={liaison.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-mono text-gray-900">{liaison.code}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900 whitespace-pre-line">{details.prestationLabel}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600 whitespace-pre-line">{details.typesLabel || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600 whitespace-pre-line">{details.materielsLabel || '—'}</td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => handleDelete(liaison.id)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Supprimer"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredLiaisons.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                    {liaisons.length === 0 ? 'Aucune liaison configurée pour le moment.' : 'Aucune liaison ne correspond aux filtres appliqués.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
-    )}
+
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ajouter une liaison</h3>
+            <form onSubmit={handleSubmitAdd} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Code liaison <span className="text-gray-500 text-xs">(optionnel)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newConfig.code}
+                  onChange={(e) => setNewConfig(prev => ({ ...prev, code: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  placeholder="LIA001 (laissé vide pour génération auto)"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Si laissé vide, un code sera généré automatiquement
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prestation *</label>
+                <select
+                  value={newConfig.prestation_code}
+                  onChange={(e) => setNewConfig(prev => ({ ...prev, prestation_code: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Sélectionnez une prestation</option>
+                  {prestations.map(presta => (
+                    <option key={presta.id} value={presta.code}>
+                      {presta.code} - {presta.service_label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Types d'installation *</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {installationTypes.map(type => (
+                    <label key={type.value} className="flex items-center gap-2 text-sm border border-gray-200 rounded px-3 py-2 hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={newConfig.types_installation.includes(type.value)}
+                        onChange={() => toggleTypeInstallation(type.value)}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>{type.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Matériels associés *</label>
+                <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
+                  {materiels.length === 0 ? (
+                    <p className="text-sm text-gray-500">Aucun matériel disponible. Ajoutez d'abord du matériel.</p>
+                  ) : (
+                    materiels.map(materiel => {
+                      const couleurInfo = COULEURS_MATERIEL[materiel.couleur || 'gris'];
+                      return (
+                        <label key={materiel.id} className="flex items-center gap-2 text-sm border border-gray-100 rounded px-2 py-2 hover:bg-gray-50">
+                          <input
+                            type="checkbox"
+                            checked={newConfig.materiel_codes.includes(materiel.code)}
+                            onChange={() => toggleMateriel(materiel.code)}
+                            className="text-blue-600 focus:ring-blue-500"
+                          />
+                          <div
+                            className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0"
+                            style={{ backgroundColor: couleurInfo.hex }}
+                            title={couleurInfo.label}
+                          />
+                          <span className="text-gray-700">
+                            <span className="font-mono text-xs mr-2">{materiel.code}</span>
+                            {materiel.designation}
+                          </span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+                {newConfig.materiel_codes.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">{newConfig.materiel_codes.length} matériel(s) sélectionné(s)</p>
+                )}
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    resetNewConfig();
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Valider
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 };
@@ -821,6 +1253,7 @@ const PrestationManager = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItem, setNewItem] = useState({
     categorie: '',
+    code: '', // NOUVEAU: Code de la prestation
     type_prestation: 'piece_unique', // Nouveau: type de prestation
     piece_unique: '', // Pour pièce unique
     pieces: [], // Pour sélection multiple
@@ -839,6 +1272,7 @@ const PrestationManager = () => {
   const handleOpenAddModal = () => {
     setNewItem({
       categorie: selectedCategory,
+      code: '', // NOUVEAU
       type_prestation: 'piece_unique',
       piece_unique: '',
       pieces: [],
@@ -853,6 +1287,7 @@ const PrestationManager = () => {
     setShowAddModal(false);
     setNewItem({
       categorie: '',
+      code: '', // NOUVEAU
       type_prestation: 'piece_unique',
       piece_unique: '',
       pieces: [],
@@ -908,6 +1343,13 @@ const PrestationManager = () => {
         prestationData.pieces_applicables = newItem.pieces.join(',');
       }
       
+      // N'envoyer le code que s'il est renseigné (sinon génération automatique côté backend)
+      if (!prestationData.code || (typeof prestationData.code === 'string' && !prestationData.code.trim())) {
+        delete prestationData.code;
+      } else if (typeof prestationData.code === 'string') {
+        prestationData.code = prestationData.code.trim();
+      }
+      
       await ApiService.createPrestation(prestationData);
       await loadPrestations();
       handleCloseAddModal();
@@ -949,6 +1391,7 @@ const PrestationManager = () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pièce</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service (value)</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Libellé</th>
@@ -959,6 +1402,16 @@ const PrestationManager = () => {
           <tbody className="bg-white divide-y divide-gray-200">
             {prestationsList.map((item) => (
               <tr key={item.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4">
+                  <input
+                    type="text"
+                    value={getFieldValue(item, 'code') || ''}
+                    onChange={(e) => handleInputChange(item.id, 'code', e.target.value)}
+                    onBlur={(e) => handleUpdate(item.id, 'code', e.target.value)}
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm font-mono"
+                    placeholder="Pecl001"
+                  />
+                </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
@@ -1030,7 +1483,7 @@ const PrestationManager = () => {
             ))}
             {prestationsList.length === 0 && (
               <tr>
-                <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
                   Aucune prestation trouvée pour cette catégorie
                 </td>
               </tr>
@@ -1059,6 +1512,21 @@ const PrestationManager = () => {
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Code prestation <span className="text-gray-500 text-xs">(ex: Pecl001)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newItem.code}
+                  onChange={(e) => handleNewItemChange('code', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  placeholder="Pecl001 (laissé vide pour génération auto)"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Si laissé vide, un code sera généré automatiquement
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Type de prestation *</label>

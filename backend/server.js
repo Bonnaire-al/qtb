@@ -14,6 +14,7 @@ app.use(express.urlencoded({ extended: true }));
 const materielRoutes = require('./routes/materiel');
 const prestationsRoutes = require('./routes/prestations');
 const pdfRoutes = require('./routes/pdf');
+const liaisonRoutes = require('./routes/liaisons');
 
 // Routes de base
 app.get('/', (req, res) => {
@@ -24,6 +25,7 @@ app.get('/', (req, res) => {
 app.use('/api/materiel', materielRoutes);
 app.use('/api/prestations', prestationsRoutes);
 app.use('/api/pdf', pdfRoutes);
+app.use('/api/liaisons', liaisonRoutes);
 
 // Démarrage du serveur
 app.listen(PORT, () => {

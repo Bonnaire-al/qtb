@@ -1,10 +1,12 @@
 const db = require('../config/database');
+const LiaisonModel = require('./Liaison-model');
+const MaterielModel = require('./M-model');
 
 class PrestationModel {
   // Récupérer toutes les prestations
   static getAll() {
     return new Promise((resolve, reject) => {
-      db.all('SELECT * FROM prestations', [], (err, rows) => {
+      db.all('SELECT * FROM prestations ORDER BY code, service_label', [], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
@@ -14,9 +16,19 @@ class PrestationModel {
   // Récupérer les prestations par catégorie
   static getByCategorie(categorie) {
     return new Promise((resolve, reject) => {
-      db.all('SELECT * FROM prestations WHERE categorie = ?', [categorie], (err, rows) => {
+      db.all('SELECT * FROM prestations WHERE categorie = ? ORDER BY code, service_label', [categorie], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
+      });
+    });
+  }
+
+  // Récupérer une prestation par son code
+  static getByCode(code) {
+    return new Promise((resolve, reject) => {
+      db.get('SELECT * FROM prestations WHERE code = ?', [code], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || null);
       });
     });
   }
@@ -62,14 +74,129 @@ class PrestationModel {
     });
   }
 
-  // Ajouter une prestation
-  static create(data) {
+  // NOUVELLE : Récupérer les matériels d'une prestation par code et type d'installation
+  static getMaterielsByPrestationCode(prestationCode, typeInstallation) {
+    return (async () => {
+      const liaisons = await LiaisonModel.getByPrestationAndType(prestationCode, typeInstallation);
+      if (!liaisons || liaisons.length === 0) {
+        return [];
+      }
+
+      const codes = new Set();
+      liaisons.forEach(liaison => (liaison.materiel_codes || []).forEach(code => codes.add(code)));
+
+      const materiels = await MaterielModel.getManyByCodes(Array.from(codes));
+      const map = new Map(materiels.map(m => [m.code, m]));
+
+      const rows = [];
+      liaisons.forEach(liaison => {
+        (liaison.materiel_codes || []).forEach(code => {
+          const materiel = map.get(code);
+          if (!materiel) return;
+          rows.push({
+            config_code: liaison.code,
+            type_installation,
+            materiel_code: materiel.code,
+            designation: materiel.designation,
+            prix_ht: materiel.prix_ht,
+            qte_dynamique: materiel.qte_dynamique,
+            type_produit: 'materiel'
+          });
+        });
+      });
+
+      return rows;
+    })();
+  }
+
+  // Générer un code unique pour une prestation
+  static async generateCode(categorie) {
     return new Promise((resolve, reject) => {
-      const { categorie, piece, service_value, service_label, prix_ht, pieces_applicables } = data;
-      const query = 'INSERT INTO prestations (categorie, piece, service_value, service_label, prix_ht, pieces_applicables) VALUES (?, ?, ?, ?, ?, ?)';
-      db.run(query, [categorie, piece, service_value, service_label, prix_ht || 0, pieces_applicables || null], function(err) {
-        if (err) reject(err);
-        else resolve({ id: this.lastID, ...data });
+      const abbrev = {
+        'domotique': 'dom',
+        'installation': 'inst',
+        'portail': 'port',
+        'securite': 'sec'
+      };
+      const prefix = abbrev[categorie] || (categorie || 'pre').substring(0, 3).toLowerCase();
+      
+      // Chercher tous les codes de cette catégorie pour trouver le numéro maximum
+      db.all(
+        `SELECT code FROM prestations WHERE code LIKE ?`,
+        [`P${prefix}%`],
+        (err, rows) => {
+          if (err) return reject(err);
+          
+          let maxNum = 0;
+          if (rows && rows.length > 0) {
+            // Extraire tous les numéros et trouver le maximum
+            rows.forEach(row => {
+              const match = row.code.match(/\d+$/);
+              if (match) {
+                const num = parseInt(match[0], 10);
+                if (num > maxNum) {
+                  maxNum = num;
+                }
+              }
+            });
+          }
+          
+          // Le prochain numéro est maxNum + 1
+          const nextNum = maxNum + 1;
+          const code = `P${prefix}${String(nextNum).padStart(3, '0')}`;
+          
+          // Vérifier que le code n'existe pas déjà (sécurité supplémentaire)
+          db.get('SELECT id FROM prestations WHERE code = ?', [code], (checkErr, existing) => {
+            if (checkErr) return reject(checkErr);
+            if (existing) {
+              // Si existe (cas très rare), incrémenter encore
+              const fallbackCode = `P${prefix}${String(nextNum + 1).padStart(3, '0')}`;
+              console.log(`⚠️ Code ${code} existe déjà, utilisation de ${fallbackCode}`);
+              resolve(fallbackCode);
+            } else {
+              resolve(code);
+            }
+          });
+        }
+      );
+    });
+  }
+
+  // Ajouter une prestation
+  static async create(data) {
+    const { code, categorie, piece, service_value, service_label, prix_ht, pieces_applicables } = data;
+    
+    // Si code non fourni, générer un code automatique unique
+    let finalCode = (code || '').trim();
+    if (!finalCode) {
+      if (!categorie) {
+        return Promise.reject(new Error('La catégorie est obligatoire pour générer un code automatique'));
+      }
+      try {
+        finalCode = await this.generateCode(categorie);
+        console.log(`✅ Code généré automatiquement : ${finalCode} pour catégorie ${categorie}`);
+      } catch (genErr) {
+        console.error(`❌ Erreur génération code pour catégorie ${categorie}:`, genErr);
+        return Promise.reject(new Error(`Erreur lors de la génération du code : ${genErr.message}`));
+      }
+    }
+    
+    return new Promise((resolve, reject) => {
+      const query = 'INSERT INTO prestations (code, categorie, piece, service_value, service_label, prix_ht, pieces_applicables) VALUES (?, ?, ?, ?, ?, ?, ?)';
+      db.run(query, [finalCode, categorie, piece, service_value, service_label, prix_ht || 0, pieces_applicables || null], function(err) {
+        if (err) {
+          // Si erreur de duplication de code, suggérer un nouveau code
+          if (err.message.includes('UNIQUE constraint failed')) {
+            return reject(new Error(`Le code ${finalCode} existe déjà. Veuillez en choisir un autre.`));
+          }
+          reject(err);
+        } else {
+          // Retourner la prestation créée avec son code
+          db.get('SELECT * FROM prestations WHERE id = ?', [this.lastID], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
+        }
       });
     });
   }
@@ -77,9 +204,10 @@ class PrestationModel {
   // Mettre à jour une prestation
   static update(id, data) {
     return new Promise((resolve, reject) => {
-      const { categorie, piece, service_value, service_label, prix_ht, pieces_applicables } = data;
+      const { code, categorie, piece, service_value, service_label, prix_ht, pieces_applicables } = data;
       
       console.log(`📝 UPDATE Prestation #${id}:`, {
+        code,
         categorie,
         piece,
         service_value,
@@ -92,9 +220,52 @@ class PrestationModel {
       // Utiliser prix_ht directement, ne pas le remplacer par 0 si c'est 0
       const finalPrixHt = prix_ht !== undefined ? prix_ht : 0;
       
-      const query = 'UPDATE prestations SET categorie = ?, piece = ?, service_value = ?, service_label = ?, prix_ht = ?, pieces_applicables = ? WHERE id = ?';
-      db.run(query, [categorie, piece, service_value, service_label, finalPrixHt, pieces_applicables || null, id], function(err) {
+      // Construire la requête dynamiquement selon les champs fournis
+      const fields = [];
+      const values = [];
+      
+      if (code !== undefined) {
+        fields.push('code = ?');
+        values.push(code);
+      }
+      if (categorie !== undefined) {
+        fields.push('categorie = ?');
+        values.push(categorie);
+      }
+      if (piece !== undefined) {
+        fields.push('piece = ?');
+        values.push(piece);
+      }
+      if (service_value !== undefined) {
+        fields.push('service_value = ?');
+        values.push(service_value);
+      }
+      if (service_label !== undefined) {
+        fields.push('service_label = ?');
+        values.push(service_label);
+      }
+      if (prix_ht !== undefined) {
+        fields.push('prix_ht = ?');
+        values.push(finalPrixHt);
+      }
+      if (pieces_applicables !== undefined) {
+        fields.push('pieces_applicables = ?');
+        values.push(pieces_applicables || null);
+      }
+      
+      if (fields.length === 0) {
+        return reject(new Error('Aucun champ à mettre à jour'));
+      }
+      
+      values.push(id);
+      const query = `UPDATE prestations SET ${fields.join(', ')} WHERE id = ?`;
+      
+      db.run(query, values, function(err) {
         if (err) {
+          // Si erreur de duplication de code, informer l'utilisateur
+          if (err.message.includes('UNIQUE constraint failed') && err.message.includes('code')) {
+            return reject(new Error(`Le code ${code} existe déjà pour une autre prestation.`));
+          }
           console.error('❌ Erreur UPDATE:', err);
           reject(err);
         } else {
@@ -125,7 +296,7 @@ class PrestationModel {
     });
   }
 
-  // Lier une prestation à du matériel
+  // Lier une prestation à du matériel (ancienne méthode - conservée pour compatibilité)
   static linkMateriel(prestationId, materielId) {
     return new Promise((resolve, reject) => {
       const query = 'INSERT INTO prestation_materiel (prestation_id, materiel_id) VALUES (?, ?)';
@@ -136,7 +307,7 @@ class PrestationModel {
     });
   }
 
-  // Délier une prestation d'un matériel
+  // Délier une prestation d'un matériel (ancienne méthode - conservée pour compatibilité)
   static unlinkMateriel(prestationId, materielId) {
     return new Promise((resolve, reject) => {
       const query = 'DELETE FROM prestation_materiel WHERE prestation_id = ? AND materiel_id = ?';

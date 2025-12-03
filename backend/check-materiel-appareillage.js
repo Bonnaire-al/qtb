@@ -45,3 +45,9 @@ db.all('SELECT * FROM materiel WHERE categorie = "appareillage"', (err, rows) =>
 });
 
 
+
+
+
+
+
+

@@ -79,3 +79,9 @@ rl.question('Voulez-vous vraiment supprimer la table prix ? (oui/non) : ', (answ
 
 
 
+
+
+
+
+
+

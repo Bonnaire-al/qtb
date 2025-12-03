@@ -40,10 +40,18 @@ class PrestationController {
   // POST /api/prestations - Créer une prestation
   static async create(req, res) {
     try {
+      console.log('📝 Création prestation avec données:', req.body);
       const prestation = await PrestationModel.create(req.body);
+      console.log('✅ Prestation créée:', prestation);
       res.status(201).json(prestation);
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error('❌ Erreur création prestation:', error);
+      // Erreurs de validation -> 400, autres erreurs -> 500
+      const statusCode = error.message.includes('obligatoire') || 
+                        error.message.includes('existe déjà') || 
+                        error.message.includes('génération') 
+                        ? 400 : 500;
+      res.status(statusCode).json({ error: error.message });
     }
   }
 

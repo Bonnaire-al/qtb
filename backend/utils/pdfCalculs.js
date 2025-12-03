@@ -52,9 +52,9 @@ const calculateDiscount = (totalMainOeuvreHT) => {
 };
 
 // Calculer les totaux généraux
-const calculateTotals = (devisItems, materielsData, isCompany = false) => {
+const calculateTotals = (devisItems, materielsData, isCompany = false, totalMaterielHTDirect = null) => {
   const totalMainOeuvreHT = calculateMainOeuvreTotal(devisItems);
-  const totalMaterielHT = calculateMaterielTotal(devisItems, materielsData);
+  const totalMaterielHT = totalMaterielHTDirect !== null ? totalMaterielHTDirect : calculateMaterielTotal(devisItems, materielsData);
   
   // Calculer la remise sur la main d'œuvre
   const { discountAmount, discountPercentage, hasDiscount } = calculateDiscount(totalMainOeuvreHT);
@@ -138,7 +138,7 @@ const createMainOeuvreRows = (devisItems, isCompany = false) => {
         const prixUnitaire = service.quantity > 0 ? (service.priceHT / service.quantity).toFixed(2) : '0.00';
         
         mainOeuvreRows.push([
-          isFirstService ? item.room : '',
+          isFirstService ? (item.room || '') : '',
           service.label,
           service.quantity.toString(),
           service.priceHT > 0 ? `${prixUnitaire} €` : 'À définir',
