@@ -184,6 +184,24 @@ class ApiService {
 
   // ==================== MATÉRIEL PAR CODE ====================
   
+  // ==================== TABLEAU ====================
+  
+  static async calculateTableau(devisItems, tableauData) {
+    const response = await fetch(`${API_BASE_URL}/tableau/calculate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        devisItems,
+        tableauData
+      })
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Erreur lors du calcul du tableau');
+    }
+    return response.json();
+  }
+
   // ==================== PDF ====================
   
   static async generatePDF(formData, devisItems, serviceType) {

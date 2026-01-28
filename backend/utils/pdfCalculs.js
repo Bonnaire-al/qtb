@@ -2,11 +2,17 @@
 const calculateMainOeuvreTotal = (devisItems) => {
   if (!devisItems || devisItems.length === 0) return 0;
   
-  return devisItems.reduce((total, item) => 
-    total + item.services.reduce((itemTotal, service) => 
-      itemTotal + service.priceHT, 0
-    ), 0
-  );
+  return devisItems.reduce((total, item) => {
+    // Pour les items de type "tableau", utiliser directement mainOeuvre
+    if (item.type === 'tableau' && item.mainOeuvre !== undefined) {
+      return total + (item.mainOeuvre || 0);
+    }
+    
+    // Pour les autres items, calculer à partir des services
+    return total + item.services.reduce((itemTotal, service) => 
+      itemTotal + (service.priceHT || 0), 0
+    );
+  }, 0);
 };
 
 // Calculer le total matériel HT
@@ -38,16 +44,17 @@ const calculateMaterielTotal = (devisItems, materielsData) => {
   }, 0);
 };
 
-// Calculer la remise selon la main d'œuvre (10% tous les 1000€)
+// Calculer la remise selon la main d'œuvre (10% à partir de 1000€)
 const calculateDiscount = (totalMainOeuvreHT) => {
-  const discountMultiplier = Math.floor(totalMainOeuvreHT / 1000);
-  const discountAmount = totalMainOeuvreHT * (discountMultiplier * 0.10);
-  const discountPercentage = discountMultiplier * 10;
+  // Remise de 10% si main d'œuvre >= 1000€ (reste à 10% même à 2000€, 3000€, etc.)
+  const hasDiscount = totalMainOeuvreHT >= 1000;
+  const discountPercentage = hasDiscount ? 10 : 0;
+  const discountAmount = hasDiscount ? totalMainOeuvreHT * 0.10 : 0;
   
   return {
     discountAmount,
     discountPercentage,
-    hasDiscount: discountAmount > 0
+    hasDiscount
   };
 };
 
@@ -128,25 +135,48 @@ const createMainOeuvreRows = (devisItems, isCompany = false) => {
   const tvaPercentage = isCompany ? '20%' : '10%';
   
   if (devisItems && devisItems.length > 0) {
-    devisItems.forEach((item) => 
-      item.services.forEach((service, serviceIndex) => {
-        const totalHT = service.priceHT;
+    devisItems.forEach((item) => {
+      // Gérer les items de type "tableau" séparément
+      if (item.type === 'tableau' && item.mainOeuvre !== undefined) {
+        const totalHT = item.mainOeuvre || 0;
         const tva = totalHT * tvaRate;
         const totalTTC = totalHT + tva;
-        const isFirstService = serviceIndex === 0;
         
-        const prixUnitaire = service.quantity > 0 ? (service.priceHT / service.quantity).toFixed(2) : '0.00';
+        // Calculer le nombre de rangées (mainOeuvre / 260)
+        const nombreRangees = totalHT > 0 ? Math.round(totalHT / 260) : 0;
+        const designation = nombreRangees > 0 
+          ? `Main d'œuvre tableau électrique (${nombreRangees} rangée${nombreRangees > 1 ? 's' : ''} × 260€)`
+          : 'Main d\'œuvre tableau électrique';
         
         mainOeuvreRows.push([
-          isFirstService ? (item.room || '') : '',
-          service.label,
-          service.quantity.toString(),
-          service.priceHT > 0 ? `${prixUnitaire} €` : 'À définir',
+          item.room || 'Tableau électrique',
+          designation,
+          '1',
+          totalHT > 0 ? `${totalHT.toFixed(2)} €` : 'À définir',
           tvaPercentage,
-          service.priceHT > 0 ? `${totalTTC.toFixed(2)} €` : 'À définir'
+          totalHT > 0 ? `${totalTTC.toFixed(2)} €` : 'À définir'
         ]);
-      })
-    );
+      } else {
+        // Pour les autres items, traiter les services normalement
+        item.services.forEach((service, serviceIndex) => {
+          const totalHT = service.priceHT || 0;
+          const tva = totalHT * tvaRate;
+          const totalTTC = totalHT + tva;
+          const isFirstService = serviceIndex === 0;
+          
+          const prixUnitaire = service.quantity > 0 ? (totalHT / service.quantity).toFixed(2) : '0.00';
+          
+          mainOeuvreRows.push([
+            isFirstService ? (item.room || '') : '',
+            service.label,
+            service.quantity.toString(),
+            totalHT > 0 ? `${prixUnitaire} €` : 'À définir',
+            tvaPercentage,
+            totalHT > 0 ? `${totalTTC.toFixed(2)} €` : 'À définir'
+          ]);
+        });
+      }
+    });
   } else {
     mainOeuvreRows.push(['-', 'Services sélectionnés', '1', 'À définir', tvaPercentage, 'À définir']);
   }

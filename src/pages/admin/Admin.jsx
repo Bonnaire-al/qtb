@@ -7,7 +7,7 @@ const COULEURS_MATERIEL = {
   'vert': { hex: '#10b981', label: 'Domotique' },
   'orange': { hex: '#f59e0b', label: 'Installation' },
   'rouge': { hex: '#ef4444', label: 'Sécurité' },
-  'violet': { hex: '#8b5cf6', label: 'Portail' },
+  'violet': { hex: '#8b5cf6', label: 'Tableau' },
   'bleu_fonce': { hex: '#1e40af', label: 'Saignée/Encastré' },
   'bleu_moyen': { hex: '#3b82f6', label: 'Saillie/Moulure' },
   'bleu_clair': { hex: '#60a5fa', label: 'Cloison creuse' },
@@ -366,7 +366,7 @@ const MaterielManager = () => {
       designation: '',
       qte_dynamique: true,
       prix_ht: '0',
-      couleur: 'gris'
+      couleur: 'gris' // Ne jamais mettre 'violet' par défaut
     });
   }, []);
 
@@ -401,6 +401,14 @@ const MaterielManager = () => {
   };
 
   const handleDelete = async (id) => {
+    const item = materielList.find(m => m.id === id);
+    
+    // Vérifier si c'est un matériel violet (tableau électrique)
+    if (item?.couleur === 'violet') {
+      alert('Ce matériel (tableau électrique) ne peut pas être supprimé.');
+      return;
+    }
+
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) return;
     try {
       await ApiService.deleteMateriel(id);
@@ -423,6 +431,10 @@ const MaterielManager = () => {
   const handleNewItemChange = (field, value) => {
     if (field === 'qte_dynamique') {
       setNewItem(prev => ({ ...prev, qte_dynamique: value }));
+    } else if (field === 'couleur' && value === 'violet') {
+      // Empêcher la sélection de violet
+      alert('La couleur violette est réservée aux matériels du tableau électrique (générés automatiquement).');
+      return;
     } else {
       setNewItem(prev => ({ ...prev, [field]: value }));
     }
@@ -478,6 +490,22 @@ const MaterielManager = () => {
 
   const handleSubmitEdit = async (e) => {
     e.preventDefault();
+    
+    // Pour les matériels violets, on ne peut modifier que le prix
+    if (editingItem?.couleur === 'violet') {
+      try {
+        await ApiService.updateMateriel(editingItem.id, {
+          prix_ht: parsePrix(editingItem.prix_ht)
+        });
+        handleCloseEditModal();
+        await loadMateriel();
+      } catch (err) {
+        alert(`Erreur lors de la mise à jour : ${err.message}`);
+      }
+      return;
+    }
+
+    // Pour les autres matériels, modification normale
     if (!editingItem?.designation?.trim()) {
       alert('Veuillez renseigner la désignation du matériel');
       return;
@@ -588,7 +616,7 @@ const MaterielManager = () => {
                         <button
                           onClick={() => handleEdit(item)}
                           className="text-blue-600 hover:text-blue-900"
-                          title="Modifier"
+                          title={item.couleur === 'violet' ? 'Modifier le prix (les autres champs sont protégés)' : 'Modifier'}
                         >
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -596,8 +624,9 @@ const MaterielManager = () => {
                         </button>
                         <button
                           onClick={() => handleDelete(item.id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Supprimer"
+                          className={`${item.couleur === 'violet' ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'}`}
+                          title={item.couleur === 'violet' ? 'Ce matériel (tableau électrique) ne peut pas être supprimé' : 'Supprimer'}
+                          disabled={item.couleur === 'violet'}
                         >
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -687,8 +716,13 @@ const MaterielManager = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Couleur *</label>
+                <div className="mb-2 p-2 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-xs text-gray-600">
+                    <strong>Note :</strong> La couleur violette est réservée aux matériels du tableau électrique (générés automatiquement).
+                  </p>
+                </div>
                 <div className="grid grid-cols-3 gap-2">
-                  {COULEURS_DISPO.map(couleur => {
+                  {COULEURS_DISPO.filter(couleur => couleur !== 'violet').map(couleur => {
                     const couleurInfo = COULEURS_MATERIEL[couleur];
                     return (
                       <label
@@ -741,6 +775,13 @@ const MaterielManager = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Modifier un matériel</h3>
+            {editingItem.couleur === 'violet' && (
+              <div className="mb-4 p-3 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                <p className="text-sm text-purple-800">
+                  <strong>Matériel du tableau électrique :</strong> Seul le prix peut être modifié. Les autres champs sont protégés.
+                </p>
+              </div>
+            )}
             <form onSubmit={handleSubmitEdit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Code matériel</label>
@@ -748,7 +789,10 @@ const MaterielManager = () => {
                   type="text"
                   value={editingItem.code}
                   onChange={(e) => handleEditChange('code', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  disabled={editingItem.couleur === 'violet'}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm ${
+                    editingItem.couleur === 'violet' ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
                   placeholder="MAT0001"
                 />
               </div>
@@ -758,29 +802,34 @@ const MaterielManager = () => {
                   type="text"
                   value={editingItem.designation}
                   onChange={(e) => handleEditChange('designation', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={editingItem.couleur === 'violet'}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    editingItem.couleur === 'violet' ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
                   required
                 />
               </div>
               <div>
                 <span className="block text-sm font-medium text-gray-700 mb-1">Quantité dynamique *</span>
                 <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className={`flex items-center gap-2 text-sm ${editingItem.couleur === 'violet' ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <input
                       type="radio"
                       name="qte_dynamique_edit"
                       checked={editingItem.qte_dynamique === true}
                       onChange={() => handleEditChange('qte_dynamique', true)}
+                      disabled={editingItem.couleur === 'violet'}
                       className="text-blue-600 focus:ring-blue-500"
                     />
                     OUI (multiplié par la quantité client)
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className={`flex items-center gap-2 text-sm ${editingItem.couleur === 'violet' ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <input
                       type="radio"
                       name="qte_dynamique_edit"
                       checked={editingItem.qte_dynamique === false}
                       onChange={() => handleEditChange('qte_dynamique', false)}
+                      disabled={editingItem.couleur === 'violet'}
                       className="text-blue-600 focus:ring-blue-500"
                     />
                     NON (quantité fixe)
@@ -807,10 +856,12 @@ const MaterielManager = () => {
                     return (
                       <label
                         key={couleur}
-                        className={`flex items-center gap-2 p-2 border-2 rounded-lg cursor-pointer transition-colors ${
+                        className={`flex items-center gap-2 p-2 border-2 rounded-lg transition-colors ${
                           editingItem.couleur === couleur
                             ? 'border-blue-500 bg-blue-50'
                             : 'border-gray-200 hover:border-gray-300'
+                        } ${
+                          editingItem.couleur === 'violet' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                         }`}
                       >
                         <input
@@ -819,6 +870,7 @@ const MaterielManager = () => {
                           value={couleur}
                           checked={editingItem.couleur === couleur}
                           onChange={() => handleEditChange('couleur', couleur)}
+                          disabled={editingItem.couleur === 'violet'}
                           className="text-blue-600 focus:ring-blue-500"
                         />
                         <div

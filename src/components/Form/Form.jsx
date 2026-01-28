@@ -3,7 +3,7 @@ import { useFormLogic } from './useFormLogic';
 import ServiceCheckboxList from './ServiceCheckboxList';
 import DevisItemList from './DevisItemList';
 
-export default function Form({ serviceType, onClose, onCancel }) {
+export default function Form({ serviceType, onClose, onCancel, tableauData = null }) {
   const {
     // États
     selectedRoom,
@@ -14,6 +14,7 @@ export default function Form({ serviceType, onClose, onCancel }) {
     devisItems,
     isLoadingPrices,
     isLoadingServices,
+    showSuccessMessage,
     
     // Configuration
     config,
@@ -33,7 +34,7 @@ export default function Form({ serviceType, onClose, onCancel }) {
     generateDevis,
     setShowDevisModal,
     reloadData
-  } = useFormLogic(serviceType);
+  } = useFormLogic(serviceType, tableauData);
 
   const onSubmit = (e) => {
     handlers.submit(e);
@@ -95,48 +96,84 @@ export default function Form({ serviceType, onClose, onCancel }) {
           )}
 
           {/* ServiceCheckboxList consolidé */}
-          <ServiceCheckboxList
-            hasRooms={hasRooms}
-            hasSpecificServices={hasSpecificServices}
-            selectedRoom={selectedRoom}
-            currentRooms={currentRooms}
-            currentSpecificServices={currentSpecificServices}
-            getServicesForRoom={getServicesForRoom}
-            config={config}
-            selectedServices={selectedServices}
-            selectedInstallationType={selectedInstallationType}
-            selectedSecurityType={selectedSecurityType}
-            onServiceToggle={handlers.serviceToggle}
-            onSelectAll={handlers.selectAll}
-            onDeselectAll={handlers.deselectAll}
-            onInstallationTypeChange={handlers.installationTypeChange}
-            onSecurityTypeChange={handlers.securityTypeChange}
-          />
+          {!showSuccessMessage && (
+            <ServiceCheckboxList
+              hasRooms={hasRooms}
+              hasSpecificServices={hasSpecificServices}
+              selectedRoom={selectedRoom}
+              currentRooms={currentRooms}
+              currentSpecificServices={currentSpecificServices}
+              getServicesForRoom={getServicesForRoom}
+              config={config}
+              selectedServices={selectedServices}
+              selectedInstallationType={selectedInstallationType}
+              selectedSecurityType={selectedSecurityType}
+              onServiceToggle={handlers.serviceToggle}
+              onSelectAll={handlers.selectAll}
+              onDeselectAll={handlers.deselectAll}
+              onInstallationTypeChange={handlers.installationTypeChange}
+              onSecurityTypeChange={handlers.securityTypeChange}
+              serviceType={serviceType}
+            />
+          )}
+
+          {/* Message de succès */}
+          {showSuccessMessage && (
+            <div className="mt-3 mb-2 p-3 bg-green-50 border border-green-200 rounded-lg animate-fade-in">
+              <p className="text-green-800 text-sm text-center font-medium">
+                ✓ Prestation ajoutée avec succès. Vous pouvez ajouter une autre prestation.
+              </p>
+            </div>
+          )}
 
           {/* Boutons d'action */}
           <div className="flex justify-between items-center pt-2">
             {/* Div pour Ajouter prestation et Annuler devis */}
-            <div className="flex space-x-2">
-              <button 
-                type="button"
-                onClick={addToDevis}
-                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
-                disabled={
-                  selectedServices.length === 0 || 
-                  (hasRooms && selectedRoom && !selectedInstallationType) ||
-                  (config.categoryLabel === 'Portail / Volet' && !selectedInstallationType) ||
-                  (config.categoryLabel === 'Sécurité' && (!selectedSecurityType || (selectedSecurityType === 'filaire' && !selectedInstallationType)))
-                }
-              >
-                Ajouter prestation
-              </button>
-              <button 
-                type="button"
-                onClick={onCancel}
-                className="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs"
-              >
-                Annuler devis
-              </button>
+            <div className="flex flex-col items-start">
+              {/* Message "ajouter au devis" avec flèche animée (domotique/installation) */}
+              {!showSuccessMessage && 
+               (serviceType === 'domotique' || serviceType === 'installation') && 
+               selectedServices.length > 0 && 
+               selectedInstallationType && (
+                <div className="mb-1 flex items-center gap-1 text-green-600 text-xs">
+                  <span>ajouter au devis</span>
+                  <svg 
+                    className="w-3 h-3 animate-bounce" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M5 10l7 7m0 0l7-7m-7 7V3" 
+                    />
+                  </svg>
+                </div>
+              )}
+              <div className="flex space-x-2">
+                <button 
+                  type="button"
+                  onClick={addToDevis}
+                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  disabled={
+                    selectedServices.length === 0 || 
+                    (hasRooms && selectedRoom && !selectedInstallationType) ||
+                    (config.categoryLabel === 'Portail / Volet' && !selectedInstallationType) ||
+                    (config.categoryLabel === 'Sécurité' && (!selectedSecurityType || (selectedSecurityType === 'filaire' && !selectedInstallationType)))
+                  }
+                >
+                  Ajouter prestation
+                </button>
+                <button 
+                  type="button"
+                  onClick={onCancel}
+                  className="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs"
+                >
+                  Annuler devis
+                </button>
+              </div>
             </div>
             
             {/* Div pour le bouton Visualiser devis à droite */}

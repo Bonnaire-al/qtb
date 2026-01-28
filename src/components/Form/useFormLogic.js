@@ -9,7 +9,7 @@ const serviceConfig = {
   securite: { title: 'Système de sécurité', categoryLabel: 'Sécurité' }
 };
 
-export const useFormLogic = (serviceType) => {
+export const useFormLogic = (serviceType, tableauData = null) => {
   // ==================== ÉTATS ====================
   const [selectedRoom, setSelectedRoom] = useState('');
   const [selectedServices, setSelectedServices] = useState([]);
@@ -21,6 +21,7 @@ export const useFormLogic = (serviceType) => {
   const [servicesByRoom, setServicesByRoom] = useState({});
   const [roomsByService, setRoomsByService] = useState([]);
   const [isLoadingServices, setIsLoadingServices] = useState(true);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // ==================== CONFIGURATION MÉMORISÉE ====================
   const config = useMemo(() => serviceConfig[serviceType], [serviceType]);
@@ -172,6 +173,79 @@ export const useFormLogic = (serviceType) => {
   };
 
   // ==================== GESTION DES DEVIS ====================
+  
+  // Fonction pour calculer et mettre à jour l'item tableau
+  const updateTableauItem = async (currentDevisItems) => {
+    // Vérifier si on doit calculer le tableau
+    if (!tableauData || tableauData.choice === 'garder') {
+      return currentDevisItems;
+    }
+
+    // Filtrer les items non-tableau pour le calcul
+    const prestationsItems = currentDevisItems.filter(item => item.type !== 'tableau');
+    
+    try {
+      // Calculer les matériels du tableau via le backend
+      const response = await ApiService.calculateTableau(prestationsItems, tableauData);
+      const result = response;
+      
+      // Trouver le tableau existant selon le type de choix
+      let existingTableauIndex = -1;
+      let tableauItemId = '';
+      
+      if (tableauData.choice === 'inexistant') {
+        // Pour "nouveau tableau", utiliser un ID fixe
+        tableauItemId = `tableau-inexistant-${serviceType}`;
+        existingTableauIndex = currentDevisItems.findIndex(item => 
+          item.type === 'tableau' && 
+          item.tableauData?.choice === 'inexistant' &&
+          !item.tableauData?.questionnaire
+        );
+      } else if (tableauData.choice === 'changer') {
+        // Pour "changer mon tableau", utiliser un ID basé sur le questionnaire
+        if (tableauData.changeType === 'commencer') {
+          tableauItemId = `tableau-changer-commencer-${serviceType}`;
+          existingTableauIndex = currentDevisItems.findIndex(item => 
+            item.type === 'tableau' && 
+            item.tableauData?.choice === 'changer' &&
+            item.tableauData?.changeType === 'commencer'
+          );
+        } else {
+          // "uniquement" - tableau créé lors de la validation du questionnaire, pas ici
+          return currentDevisItems;
+        }
+      }
+      
+      const tableauItem = {
+        id: existingTableauIndex >= 0 ? currentDevisItems[existingTableauIndex].id : tableauItemId,
+        type: 'tableau',
+        room: 'Tableau électrique',
+        serviceType: serviceType,
+        tableauData: tableauData,
+        services: result.materiels,
+        mainOeuvre: result.mainOeuvre,
+        rangees: result.rangees,
+        completed: false
+      };
+
+      let updatedItems;
+      if (existingTableauIndex >= 0) {
+        // Mettre à jour l'item existant
+        updatedItems = [...currentDevisItems];
+        updatedItems[existingTableauIndex] = tableauItem;
+      } else {
+        // Ajouter le nouvel item
+        updatedItems = [...currentDevisItems, tableauItem];
+      }
+
+      return updatedItems;
+    } catch (error) {
+      console.error('❌ Erreur calcul tableau:', error);
+      // En cas d'erreur, retourner les items sans modification
+      return currentDevisItems;
+    }
+  };
+
   const addToDevis = () => {
     if (selectedServices.length === 0) return;
 
@@ -208,29 +282,73 @@ export const useFormLogic = (serviceType) => {
       completed: false
     };
 
-    setDevisItems(prev => [...prev, newDevisItem]);
+    // Ajouter la nouvelle prestation
+    setDevisItems(prev => {
+      const updated = [...prev, newDevisItem];
+      // Calculer et mettre à jour l'item tableau si nécessaire (asynchrone)
+      updateTableauItem(updated).then(result => {
+        setDevisItems(result);
+      }).catch(error => {
+        console.error('Erreur mise à jour tableau:', error);
+      });
+      // Retourner les items mis à jour immédiatement (le tableau sera mis à jour après)
+      return updated;
+    });
+    
     resetForm();
+    
+    // Afficher le message de succès
+    setShowSuccessMessage(true);
+    setTimeout(() => {
+      setShowSuccessMessage(false);
+    }, 3000); // Le message disparaît après 3 secondes
   };
 
   const removeDevisItem = (itemId) => {
-    setDevisItems(prev => prev.filter(item => item.id !== itemId));
+    setDevisItems(prev => {
+      // Supprimer l'item
+      const filtered = prev.filter(item => item.id !== itemId);
+      // Recalculer le tableau si nécessaire (asynchrone)
+      updateTableauItem(filtered).then(result => {
+        setDevisItems(result);
+      }).catch(error => {
+        console.error('Erreur mise à jour tableau:', error);
+      });
+      // Retourner les items filtrés immédiatement (le tableau sera mis à jour après)
+      return filtered;
+    });
   };
 
   const updateQuantity = (itemId, serviceIndex, quantity) => {
     const qty = parseInt(quantity) || 1;
     
-    // Mettre à jour uniquement la quantité - le backend calculera les prix
-    setDevisItems(prev => prev.map(item => {
-      if (item.id !== itemId) return item;
+    // Mettre à jour la quantité
+    setDevisItems(prev => {
+      const updated = prev.map(item => {
+        if (item.id !== itemId) return item;
+        
+        return {
+          ...item,
+          services: item.services.map((service, index) => {
+            if (index !== serviceIndex) return service;
+            return { ...service, quantity: qty };
+          })
+        };
+      });
       
-      return {
-        ...item,
-        services: item.services.map((service, index) => {
-          if (index !== serviceIndex) return service;
-          return { ...service, quantity: qty };
-        })
-      };
-    }));
+      // Si on a un choix de tableau et qu'on modifie une prestation (pas un tableau), recalculer le tableau (asynchrone)
+      if (tableauData && tableauData.choice !== 'garder') {
+        updateTableauItem(updated).then(result => {
+          setDevisItems(result);
+        }).catch(error => {
+          console.error('Erreur mise à jour tableau:', error);
+        });
+        // Retourner les items mis à jour immédiatement (le tableau sera mis à jour après)
+        return updated;
+      }
+      
+      return updated;
+    });
   };
 
   const generateDevis = (onClose) => {
@@ -250,6 +368,7 @@ export const useFormLogic = (serviceType) => {
     devisItems,
     isLoadingPrices,
     isLoadingServices,
+    showSuccessMessage,
     
     // Configuration
     config,

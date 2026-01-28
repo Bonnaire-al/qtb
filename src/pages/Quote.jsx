@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import Form from '../components/Form/Form';
 import ModalQuote from '../components/modal-pdf/ModalQuote';
+import TableauElectriqueModal from '../components/Form/TableauElectriqueModal';
+import TableauChangeModal from '../components/Form/TableauChangeModal';
+import { useTableauLogic } from '../components/Form/useTableauLogic';
+import ApiService from '../services/api';
+import { useModalAnimation } from '../hooks/useModalAnimation';
+
+const ANIMATION_DURATION = 400;
 
 
 const SERVICES = [
@@ -22,9 +29,20 @@ function Quote() {
   });
   const [showModal, setShowModal] = useState(false);
   const [showServiceModal, setShowServiceModal] = useState(false);
-  const [serviceModalAnim, setServiceModalAnim] = useState('in'); // 'in', 'out'
-  const [modalAnim, setModalAnim] = useState('in'); // pour le modal de choix
-  const [devisItems, setDevisItems] = useState([]); // Stockage des prestations sélectionnées
+  const [devisItems, setDevisItems] = useState([]);
+  const [tableauData, setTableauData] = useState(null);
+
+  // Hook pour gérer la logique du tableau électrique
+  const tableauLogic = useTableauLogic();
+
+  // Animations des modals avec le hook
+  const serviceModalAnim = useModalAnimation(showServiceModal);
+  const tableauModalAnim = useModalAnimation(tableauLogic.showTableauModal);
+  const changeSubModalAnim = useModalAnimation(tableauLogic.showChangeSubModal);
+  const questionnaireModalAnim = useModalAnimation(tableauLogic.showQuestionnaireModal);
+
+  // Animation du modal de choix de service (animation center)
+  const [modalAnim, setModalAnim] = useState('in');
 
   // Gestion des champs
   const handleChange = (e) => {
@@ -52,30 +70,384 @@ function Quote() {
       setModalAnim('out');
       setTimeout(() => {
         setShowModal(false);
-        // Aller directement au formulaire du service
-        setShowServiceModal(true);
-        setServiceModalAnim('in');
-      }, 400); // durée de l'animation
+        if (formData.service === 'domotique' || formData.service === 'installation') {
+          tableauLogic.setShowTableauModal(true);
+        } else {
+          setShowServiceModal(true);
+        }
+      }, ANIMATION_DURATION);
     }
   };
 
   // Quand on valide le formulaire spécifique : slide out left puis afficher aperçu
-  const handleCloseServiceModal = (items) => {
-    setDevisItems(items || []); // Stocker les prestations sélectionnées
-    setServiceModalAnim('out');
-    setTimeout(() => {
+  const handleCloseServiceModal = async (items) => {
+    // Si on a un choix de tableau, calculer les matériaux avant de passer à l'aperçu
+    const finalItems = await calculateFinalTableauItems(items || [], tableauData);
+    setDevisItems(finalItems);
+    serviceModalAnim.closeWithAnimation(() => {
       setShowServiceModal(false);
-      setStep(2); // On passe à l'aperçu final
-    }, 400); // durée de l'animation
+      setStep(2);
+    });
+  };
+
+  // Fonction pour calculer les items finaux du tableau avant de générer le devis
+  const calculateFinalTableauItems = async (prestationsItems, tableauData) => {
+    // Si "garder mon tableau", ne rien ajouter
+    if (!tableauData || tableauData.choice === 'garder') {
+      return prestationsItems;
+    }
+
+    // Séparer les prestations et les tableaux
+    const prestationsOnly = prestationsItems.filter(item => item.type !== 'tableau');
+    const existingTableaux = prestationsItems.filter(item => item.type === 'tableau');
+    
+    // Récupérer tous les questionnaires des tableaux déjà ajoutés (pour "changer mon tableau")
+    const questionnaires = existingTableaux
+      .map(item => item.tableauData?.questionnaire)
+      .filter(q => q !== null && q !== undefined);
+
+    // Si "nouveau tableau", calculer uniquement à partir des prestations
+    if (tableauData.choice === 'inexistant') {
+      try {
+        const response = await ApiService.calculateTableau(prestationsOnly, {
+          choice: 'inexistant',
+          questionnaire: null
+        });
+        const result = response;
+      
+      // ID fixe pour "nouveau tableau" (même que dans useFormLogic)
+      const tableauItemId = `tableau-inexistant-${formData.service}`;
+      
+      // Trouver le tableau existant pour "nouveau tableau" parmi les tableaux existants
+      const existingTableauIndex = existingTableaux.findIndex(item => 
+        item.id === tableauItemId ||
+        (item.tableauData?.choice === 'inexistant' &&
+         !item.tableauData?.questionnaire)
+      );
+      
+      const tableauItem = {
+        id: tableauItemId,
+        type: 'tableau',
+        room: 'Tableau électrique',
+        serviceType: formData.service,
+        tableauData: tableauData,
+        services: result.materiels,
+        mainOeuvre: result.mainOeuvre,
+        completed: false
+      };
+      
+      // Supprimer tous les anciens tableaux et ajouter le nouveau tableau calculé
+      // (car le calcul du tableau gère déjà toutes les prestations)
+      return [...prestationsOnly, tableauItem];
+      } catch (error) {
+        console.error('Erreur calcul tableau:', error);
+        return prestationsItems;
+      }
+    }
+
+    // Si "changer mon tableau"
+    if (tableauData.choice === 'changer' && tableauData.questionnaire) {
+      if (tableauData.changeType === 'uniquement') {
+        // "Changer uniquement" : utiliser la même logique que "commencer" mais sans prestations
+        // Vérifier si tableauData.questionnaire est déjà dans questionnaires pour éviter les doublons
+        const questionnaireDejaPresent = questionnaires.some(q => 
+          q && tableauData.questionnaire && 
+          JSON.stringify(q) === JSON.stringify(tableauData.questionnaire)
+        );
+        
+        const questionnairesUniques = questionnaireDejaPresent 
+          ? questionnaires 
+          : [...questionnaires, tableauData.questionnaire];
+        
+        try {
+          // Utiliser calculateTableau avec un tableau vide de prestations
+          const response = await ApiService.calculateTableau([], {
+            choice: 'changer',
+            questionnaire: tableauData.questionnaire,
+            changeType: 'uniquement'
+          });
+          const result = response;
+        
+        // ID fixe pour "changer uniquement"
+        const tableauItemId = `tableau-changer-uniquement-${formData.service}`;
+        
+        // Trouver le tableau existant pour "changer uniquement" parmi les tableaux existants
+        const existingTableauIndex = existingTableaux.findIndex(item => 
+          item.id === tableauItemId ||
+          (item.tableauData?.choice === 'changer' &&
+           item.tableauData?.changeType === 'uniquement')
+        );
+        
+        const tableauItem = {
+          id: existingTableauIndex >= 0 ? existingTableaux[existingTableauIndex].id : tableauItemId,
+          type: 'tableau',
+          room: 'Tableau électrique',
+          serviceType: formData.service,
+          tableauData: tableauData,
+          services: result.materiels,
+          mainOeuvre: result.mainOeuvre,
+          completed: false
+        };
+        
+        // Supprimer tous les anciens tableaux et ajouter le nouveau tableau calculé
+        return [...prestationsOnly, tableauItem];
+        } catch (error) {
+          console.error('Erreur calcul tableau:', error);
+          return prestationsItems;
+        }
+      } else if (tableauData.changeType === 'commencer') {
+        // "Changer + ajouter prestation" : fusionner questionnaires + prestations
+        // Vérifier si tableauData.questionnaire est déjà dans questionnaires pour éviter les doublons
+        const questionnaireDejaPresent = questionnaires.some(q => 
+          q && tableauData.questionnaire && 
+          JSON.stringify(q) === JSON.stringify(tableauData.questionnaire)
+        );
+        
+        const questionnairesUniques = questionnaireDejaPresent 
+          ? questionnaires 
+          : [...questionnaires, tableauData.questionnaire];
+        
+        try {
+          // Utiliser calculateTableau avec questionnaires et prestations
+          const response = await ApiService.calculateTableau(prestationsOnly, {
+            choice: 'changer',
+            questionnaire: tableauData.questionnaire,
+            changeType: 'commencer'
+          });
+          const result = response;
+        
+        // ID fixe pour "changer + commencer" (même que dans useFormLogic)
+        const tableauItemId = `tableau-changer-commencer-${formData.service}`;
+        
+        // Trouver le tableau existant pour "changer + commencer" parmi les tableaux existants
+        const existingTableauIndex = existingTableaux.findIndex(item => 
+          item.id === tableauItemId ||
+          (item.tableauData?.choice === 'changer' &&
+           item.tableauData?.changeType === 'commencer')
+        );
+        
+        // Debug: vérifier les matériels avant de créer le tableauItem
+        console.log(`🔍 Quote.jsx - Matériels du tableau avant création item:`, {
+          materielsCount: result.materiels.length,
+          materiels: result.materiels.map(m => ({
+            code: m.code,
+            label: m.label,
+            quantity: m.quantity,
+            prix_ht: m.prix_ht
+          })),
+          disjoncteursDivisionnaires: result.materiels.filter(m => m.code === 'DISDIV')
+        });
+        
+        const tableauItem = {
+          id: tableauItemId,
+          type: 'tableau',
+          room: 'Tableau électrique',
+          serviceType: formData.service,
+          tableauData: tableauData,
+          services: result.materiels,
+          mainOeuvre: result.mainOeuvre,
+          completed: false
+        };
+        
+        // Supprimer tous les anciens tableaux et ajouter le nouveau tableau calculé
+        // (car calculateTableau calcule déjà pour tous les questionnaires)
+        return [...prestationsOnly, tableauItem];
+        } catch (error) {
+          console.error('Erreur calcul tableau:', error);
+          return prestationsItems;
+        }
+      }
+    }
+
+    return prestationsItems;
   };
 
   // Fonction pour retourner à la saisie des identifiants
   const handleCancelToStep1 = () => {
-    setServiceModalAnim('out');
-    setTimeout(() => {
+    serviceModalAnim.closeWithAnimation(() => {
       setShowServiceModal(false);
-      setStep(1); // On retourne à l'étape 1 (saisie des identifiants)
-    }, 400); // durée de l'animation
+      setStep(1);
+    });
+  };
+
+  // Fermeture du modal service - retour à l'étape 1
+  const handleCloseServiceModalDirect = () => {
+    serviceModalAnim.closeWithAnimation(() => {
+      setShowServiceModal(false);
+      setShowModal(false);
+      setStep(1);
+    });
+  };
+
+  // Gestion du choix du tableau électrique
+  const handleTableauChoice = (choice) => {
+    if (choice === 'garder' || choice === 'inexistant') {
+      // Pour "garder" ou "inexistant", fermer le modal et ouvrir le formulaire de service
+      tableauLogic.handleTableauChoice(choice);
+      tableauModalAnim.closeWithAnimation(() => {
+        setTableauData({
+          choice,
+          questionnaire: null,
+          changeType: choice === 'inexistant' ? 'commencer' : null
+        });
+        tableauLogic.setShowTableauModal(false);
+        setShowServiceModal(true);
+      });
+    } else if (choice === 'changer') {
+      // Pour "changer", gérer via le hook (ouvre le sous-modal)
+      tableauLogic.handleTableauChoice(choice);
+    }
+  };
+
+  // Fermeture du modal tableau principal - retour à l'étape 1
+  const handleCloseTableauModal = () => {
+    tableauModalAnim.closeWithAnimation(() => {
+      tableauLogic.setShowTableauModal(false);
+      tableauLogic.resetTableauLogic();
+      setShowModal(false);
+      setStep(1);
+    });
+  };
+
+  // Fermeture du sous-modal "Changer mon tableau" - retour à l'étape 1
+  const handleCloseChangeSubModal = () => {
+    changeSubModalAnim.closeWithAnimation(() => {
+      tableauLogic.setShowChangeSubModal(false);
+      tableauLogic.setShowTableauModal(false);
+      tableauLogic.resetTableauLogic();
+      setShowModal(false);
+      setStep(1);
+    });
+  };
+
+  // Gestion du sous-choix "Changer mon tableau"
+  const handleChangeType = (type) => {
+    changeSubModalAnim.closeWithAnimation(() => {
+      tableauLogic.handleChangeType(type);
+    });
+  };
+
+  // Fermeture du modal questionnaire avec animation - retour à l'étape 1
+  const handleCloseQuestionnaireModal = () => {
+    questionnaireModalAnim.closeWithAnimation(() => {
+      tableauLogic.setShowQuestionnaireModal(false);
+      tableauLogic.resetTableauLogic();
+      setShowModal(false);
+      setStep(1);
+    });
+  };
+
+  // Handler pour ajouter un autre tableau (sauvegarde le questionnaire actuel et réinitialise)
+  const handleAddAnotherTableau = async () => {
+    const data = tableauLogic.getTableauData();
+    if (data.questionnaire) {
+      try {
+        // Calculer les matériels du tableau actuel (avec les prestations actuelles pour compter les interrupteurs)
+        const response = await ApiService.calculateTableau(
+          devisItems.filter(item => item.type !== 'tableau'),
+          {
+            choice: 'changer',
+            questionnaire: data.questionnaire,
+            changeType: 'uniquement'
+          }
+        );
+        const result = response;
+      
+      // Créer l'item tableau
+      const tableauItem = {
+        id: `tableau-${Date.now()}`,
+        type: 'tableau',
+        room: 'Tableau électrique',
+        serviceType: formData.service,
+        tableauData: data,
+        services: result.materiels,
+        mainOeuvre: result.mainOeuvre,
+        completed: false
+      };
+
+      // Ajouter le tableau aux devisItems existants (ne pas écraser - sauvegarde en mémoire)
+      setDevisItems(prev => [...prev, tableauItem]);
+      } catch (error) {
+        console.error('Erreur calcul tableau:', error);
+      }
+    }
+
+    // Réinitialiser le questionnaire et les états pour en ajouter un nouveau
+    // On garde la mémoire des tableaux déjà ajoutés dans devisItems
+    questionnaireModalAnim.closeWithAnimation(() => {
+      tableauLogic.setShowQuestionnaireModal(false);
+      // Réinitialiser le questionnaire
+      tableauLogic.setQuestionnaire({
+        nombrePhase: '',
+        appareilTriphase: '',
+        nombreRangees: '',
+        nombreDifferentiels: '',
+        nombreDisjoncteurs: '',
+        lignesSpeciales: [],
+        radiateurElectrique: '',
+        telerupteur: false
+      });
+      // Réinitialiser les choix pour permettre de choisir un nouveau type de tableau
+      tableauLogic.setTableauChoice(null);
+      tableauLogic.setChangeType(null);
+      // Rouvrir le modal de choix initial pour choisir un nouveau tableau
+      setTimeout(() => {
+        tableauLogic.setShowTableauModal(true);
+      }, 50);
+    });
+  };
+
+  // Validation du questionnaire
+  const handleQuestionnaireValidate = () => {
+    const data = tableauLogic.getTableauData();
+    
+    // Debug: vérifier les données du questionnaire avant de les stocker
+    console.log(`🔍 Quote.jsx - handleQuestionnaireValidate:`, {
+      data,
+      questionnaire: data.questionnaire,
+      nombreDisjoncteurs: data.questionnaire?.nombreDisjoncteurs,
+      changeType: data.changeType,
+      choice: data.choice
+    });
+    
+    setTableauData(data);
+
+    // Gérer selon le type de changement
+    if (tableauLogic.changeType === 'uniquement') {
+      // Pour "uniquement", ne pas créer le tableau ici
+      // Le tableau sera créé dans calculateFinalTableauItems avec la même logique que "commencer"
+      // mais sans prestations
+      // Recalculer les items finaux avant de passer à step 2
+      calculateFinalTableauItems([], data).then(finalItems => {
+        setDevisItems(finalItems);
+      }).catch(error => {
+        console.error('Erreur calcul tableau:', error);
+      });
+      
+      // Fermer le questionnaire puis le modal principal et générer le devis
+      questionnaireModalAnim.closeWithAnimation(() => {
+        tableauLogic.setShowQuestionnaireModal(false);
+        tableauLogic.resetTableauLogic();
+        // Fermer aussi le modal principal du tableau
+        tableauModalAnim.closeWithAnimation(() => {
+          tableauLogic.setShowTableauModal(false);
+          setStep(2);
+        });
+      });
+    } else if (tableauLogic.changeType === 'commencer' || tableauLogic.tableauChoice === 'inexistant') {
+      // Pour "commencer" ou "inexistant", ne pas créer de tableau ici
+      // Le tableau sera créé dans calculateFinalTableauItems avec les prestations
+      // Fermer le questionnaire puis le modal principal et ouvrir le formulaire de service
+      questionnaireModalAnim.closeWithAnimation(() => {
+        tableauLogic.setShowQuestionnaireModal(false);
+        // Ne pas réinitialiser tableauLogic pour garder les données du questionnaire
+        // Fermer aussi le modal principal du tableau
+        tableauModalAnim.closeWithAnimation(() => {
+          tableauLogic.setShowTableauModal(false);
+          setShowServiceModal(true);
+        });
+      });
+    }
   };
 
   // Rendu dynamique du formulaire selon le service
@@ -83,7 +455,8 @@ function Quote() {
     return <Form 
       serviceType={formData.service} 
       onClose={handleCloseServiceModal} 
-      onCancel={handleCancelToStep1} 
+      onCancel={handleCancelToStep1}
+      tableauData={tableauData}
     />;
   };
 
@@ -190,7 +563,13 @@ function Quote() {
             <div className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative transition-transform duration-400 ${modalAnim === 'in' ? 'animate-slide-in-center' : 'animate-slide-out-left'}`}>
               <button
                 className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl"
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setModalAnim('out');
+                  setTimeout(() => {
+                    setShowModal(false);
+                    setStep(1);
+                  }, ANIMATION_DURATION);
+                }}
                 aria-label="Fermer"
               >
                 &times;
@@ -222,9 +601,27 @@ function Quote() {
         )}
 
         {/* Modal formulaire spécifique au service (slide-in depuis la droite) */}
-        {showServiceModal && (
+        {serviceModalAnim.isRendered && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-lg relative transition-transform duration-400 ${serviceModalAnim === 'in' ? 'animate-slide-in-right' : 'animate-slide-out-left'}`}>
+            <div 
+              className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-lg relative transition-transform duration-400 modal-animation-ready ${
+                serviceModalAnim.animState === 'in' ? 'animate-slide-in-right' : serviceModalAnim.animState === 'out' ? 'animate-slide-out-left' : ''
+              }`}
+            >
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl z-10"
+                onClick={handleCloseServiceModalDirect}
+                aria-label="Fermer"
+              >
+                &times;
+              </button>
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl z-10"
+                onClick={handleCloseServiceModalDirect}
+                aria-label="Fermer"
+              >
+                &times;
+              </button>
               {/* Titre du service uniquement */}
               <div className="mb-6 border-b pb-4">
                 <div className="flex items-center gap-2">
@@ -236,6 +633,36 @@ function Quote() {
               {renderServiceForm()}
             </div>
           </div>
+        )}
+
+        {/* Modal tableau électrique */}
+        {(tableauModalAnim.isRendered || changeSubModalAnim.isRendered) && (
+          <TableauElectriqueModal
+            onChoice={handleTableauChoice}
+            onClose={handleCloseTableauModal}
+            showChangeSubModal={tableauLogic.showChangeSubModal}
+            onChangeType={handleChangeType}
+            onCloseChangeSubModal={handleCloseChangeSubModal}
+            animState={tableauModalAnim.animState}
+            changeSubModalAnimState={changeSubModalAnim.animState}
+            isMainModalRendered={tableauModalAnim.isRendered}
+            isSubModalRendered={changeSubModalAnim.isRendered}
+          />
+        )}
+
+        {/* Modal questionnaire changement tableau */}
+        {questionnaireModalAnim.isRendered && (
+          <TableauChangeModal
+            showModal={tableauLogic.showQuestionnaireModal}
+            questionnaire={tableauLogic.questionnaire}
+            onChange={tableauLogic.handleQuestionnaireChange}
+            onLigneSpecialeToggle={tableauLogic.handleLigneSpecialeToggle}
+            onValidate={handleQuestionnaireValidate}
+            onClose={handleCloseQuestionnaireModal}
+            changeType={tableauLogic.changeType}
+            animState={questionnaireModalAnim.animState}
+            onAddAnotherTableau={handleAddAnotherTableau}
+          />
         )}
 
         {/* Étape 2 : Aperçu du devis au format A4 */}

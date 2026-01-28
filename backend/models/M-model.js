@@ -68,6 +68,12 @@ class MaterielModel {
       throw new Error('La désignation du matériel est obligatoire.');
     }
 
+    // Bloquer la création de matériels violets (tableau électrique)
+    // Ces matériels sont gérés automatiquement par le système
+    if (couleur === 'violet') {
+      throw new Error('Les matériels du tableau électrique (couleur violette) ne peuvent pas être créés manuellement. Ils sont générés automatiquement par le système.');
+    }
+
     const finalCode = (code || '').trim() || (await this.generateCode(finalDesignation));
     const qteDynamiqueFlag = qte_dynamique ? 1 : 0;
     const prix = typeof prix_ht === 'number' ? prix_ht : Number(prix_ht) || 0;
@@ -105,74 +111,129 @@ class MaterielModel {
   }
 
   static update(id, data) {
-    const updates = [];
-    const values = [];
-
-    if (data.code !== undefined) {
-      updates.push('code = ?');
-      values.push(data.code.trim());
-    }
-    if (data.designation !== undefined) {
-      const designation = data.designation.trim();
-      if (!designation) {
-        return Promise.reject(new Error('La désignation du matériel est obligatoire.'));
-      }
-      updates.push('designation = ?');
-      values.push(designation);
-    }
-    if (data.qte_dynamique !== undefined) {
-      updates.push('qte_dynamique = ?');
-      values.push(data.qte_dynamique ? 1 : 0);
-    }
-    if (data.prix_ht !== undefined) {
-      const prix = typeof data.prix_ht === 'number' ? data.prix_ht : Number(data.prix_ht) || 0;
-      updates.push('prix_ht = ?');
-      values.push(prix);
-    }
-    if (data.couleur !== undefined) {
-      // Validation de la couleur
-      const validColors = ['gris', 'vert', 'orange', 'rouge', 'violet', 'bleu_fonce', 'bleu_moyen', 'bleu_clair', 'bleu_marine'];
-      const couleur = validColors.includes(data.couleur) ? data.couleur : 'gris';
-      updates.push('couleur = ?');
-      values.push(couleur);
-    }
-
-    if (updates.length === 0) {
-      return Promise.reject(new Error('Aucune modification à appliquer.'));
-    }
-
-    updates.push('updated_at = CURRENT_TIMESTAMP');
-
-    values.push(id);
-
     return new Promise((resolve, reject) => {
-      const query = `UPDATE materiel SET ${updates.join(', ')} WHERE id = ?`;
-      db.run(query, values, function (err) {
-        if (err) {
-          if (err.message.includes('UNIQUE constraint failed') && data.code) {
-            return reject(new Error(`Le code ${data.code} existe déjà.`));
-          }
-          return reject(err);
-        }
+      // D'abord, récupérer le matériel pour vérifier sa couleur
+      db.get(
+        'SELECT couleur FROM materiel WHERE id = ?',
+        [id],
+        (err, row) => {
+          if (err) return reject(err);
+          if (!row) return reject(new Error('Matériel non trouvé'));
 
-        db.get(
-          'SELECT id, code, designation, qte_dynamique, prix_ht, couleur FROM materiel WHERE id = ?',
-          [id],
-          (selectErr, row) => {
-            if (selectErr) reject(selectErr);
-            else resolve(row);
+          // Si le matériel est violet (tableau électrique), on ne peut modifier que le prix
+          if (row.couleur === 'violet') {
+            // Vérifier si on essaie de modifier autre chose que le prix
+            const modificationsNonAutorisees = [];
+            if (data.code !== undefined && data.code !== row.code) {
+              modificationsNonAutorisees.push('code');
+            }
+            if (data.designation !== undefined) {
+              modificationsNonAutorisees.push('designation');
+            }
+            if (data.qte_dynamique !== undefined) {
+              modificationsNonAutorisees.push('qte_dynamique');
+            }
+            if (data.couleur !== undefined && data.couleur !== 'violet') {
+              modificationsNonAutorisees.push('couleur');
+            }
+
+            if (modificationsNonAutorisees.length > 0) {
+              return reject(new Error(
+                `Ce matériel (tableau électrique) ne peut pas être modifié. Seul le prix peut être modifié. Tentative de modification: ${modificationsNonAutorisees.join(', ')}`
+              ));
+            }
+
+            // Si on modifie seulement le prix, c'est autorisé
+            if (data.prix_ht === undefined) {
+              return reject(new Error('Aucune modification autorisée pour ce matériel (sauf le prix).'));
+            }
           }
-        );
-      });
+
+          // Continuer avec la mise à jour normale
+          const updates = [];
+          const values = [];
+
+          if (data.code !== undefined) {
+            updates.push('code = ?');
+            values.push(data.code.trim());
+          }
+          if (data.designation !== undefined) {
+            const designation = data.designation.trim();
+            if (!designation) {
+              return reject(new Error('La désignation du matériel est obligatoire.'));
+            }
+            updates.push('designation = ?');
+            values.push(designation);
+          }
+          if (data.qte_dynamique !== undefined) {
+            updates.push('qte_dynamique = ?');
+            values.push(data.qte_dynamique ? 1 : 0);
+          }
+          if (data.prix_ht !== undefined) {
+            const prix = typeof data.prix_ht === 'number' ? data.prix_ht : Number(data.prix_ht) || 0;
+            updates.push('prix_ht = ?');
+            values.push(prix);
+          }
+          if (data.couleur !== undefined) {
+            // Validation de la couleur
+            const validColors = ['gris', 'vert', 'orange', 'rouge', 'violet', 'bleu_fonce', 'bleu_moyen', 'bleu_clair', 'bleu_marine'];
+            const couleur = validColors.includes(data.couleur) ? data.couleur : 'gris';
+            updates.push('couleur = ?');
+            values.push(couleur);
+          }
+
+          if (updates.length === 0) {
+            return reject(new Error('Aucune modification à appliquer.'));
+          }
+
+          updates.push('updated_at = CURRENT_TIMESTAMP');
+          values.push(id);
+
+          const query = `UPDATE materiel SET ${updates.join(', ')} WHERE id = ?`;
+          db.run(query, values, function (updateErr) {
+            if (updateErr) {
+              if (updateErr.message.includes('UNIQUE constraint failed') && data.code) {
+                return reject(new Error(`Le code ${data.code} existe déjà.`));
+              }
+              return reject(updateErr);
+            }
+
+            db.get(
+              'SELECT id, code, designation, qte_dynamique, prix_ht, couleur FROM materiel WHERE id = ?',
+              [id],
+              (selectErr, updatedRow) => {
+                if (selectErr) reject(selectErr);
+                else resolve(updatedRow);
+              }
+            );
+          });
+        }
+      );
     });
   }
 
   static delete(id) {
     return new Promise((resolve, reject) => {
-      db.run('DELETE FROM materiel WHERE id = ?', [id], function (err) {
-        if (err) reject(err);
-        else resolve({ deleted: this.changes });
-      });
+      // Vérifier d'abord si le matériel est violet (tableau électrique)
+      db.get(
+        'SELECT couleur FROM materiel WHERE id = ?',
+        [id],
+        (err, row) => {
+          if (err) return reject(err);
+          if (!row) return reject(new Error('Matériel non trouvé'));
+
+          // Bloquer la suppression si le matériel est violet
+          if (row.couleur === 'violet') {
+            return reject(new Error('Ce matériel (tableau électrique) ne peut pas être supprimé.'));
+          }
+
+          // Sinon, procéder à la suppression
+          db.run('DELETE FROM materiel WHERE id = ?', [id], function (deleteErr) {
+            if (deleteErr) reject(deleteErr);
+            else resolve({ deleted: this.changes });
+          });
+        }
+      );
     });
   }
 

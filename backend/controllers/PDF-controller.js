@@ -9,6 +9,20 @@ class PDFController {
   static async calculateDevisItemsPrices(devisItems) {
     const itemsWithPrices = await Promise.all(
       devisItems.map(async (item) => {
+        // Pour les items de type "tableau", les matériels n'ont pas de prix dans le système de prestations
+        // Leurs prix sont gérés directement dans la base de données des matériels
+        if (item.type === 'tableau') {
+          return {
+            ...item,
+            services: item.services.map(service => ({
+              ...service,
+              prixBase: 0,
+              priceHT: 0 // Les prix des matériels du tableau sont calculés via calculMateriel
+            }))
+          };
+        }
+
+        // Pour les autres items, calculer les prix normalement
         const servicesWithPrices = await Promise.all(
           item.services.map(async (service) => {
             try {

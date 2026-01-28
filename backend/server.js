@@ -15,6 +15,7 @@ const materielRoutes = require('./routes/materiel');
 const prestationsRoutes = require('./routes/prestations');
 const pdfRoutes = require('./routes/pdf');
 const liaisonRoutes = require('./routes/liaisons');
+const tableauRoutes = require('./routes/tableau');
 
 // Routes de base
 app.get('/', (req, res) => {
@@ -26,6 +27,7 @@ app.use('/api/materiel', materielRoutes);
 app.use('/api/prestations', prestationsRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/liaisons', liaisonRoutes);
+app.use('/api/tableau', tableauRoutes);
 
 // Démarrage du serveur
 app.listen(PORT, () => {

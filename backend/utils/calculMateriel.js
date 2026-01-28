@@ -63,7 +63,87 @@ async function calculateMaterielsFromPrestations(devisItems) {
   
   // Parcourir tous les items du devis
   for (const item of devisItems) {
-    // Parcourir tous les services de chaque item
+    // Gérer les items de type "tableau" différemment : rechercher les matériels directement par code
+    if (item.type === 'tableau' && item.services && item.services.length > 0) {
+      try {
+        // Pour les tableaux, les services contiennent déjà les codes des matériels
+        const codesSet = new Set();
+        item.services.forEach(service => {
+          if (service.code) {
+            codesSet.add(service.code);
+          }
+        });
+
+        if (codesSet.size > 0) {
+          const materiels = await MaterielModel.getManyByCodes(Array.from(codesSet));
+          const materielMap = new Map(materiels.map(m => [m.code, m]));
+
+          // Parcourir les services du tableau pour récupérer les quantités
+          item.services.forEach(service => {
+            if (!service.code) {
+              console.warn(`⚠️ Service sans code dans tableau:`, service);
+              return;
+            }
+            
+            const materiel = materielMap.get(service.code);
+            if (!materiel) {
+              console.warn(`⚠️ Matériel ${service.code} (tableau) introuvable en base. Service:`, service);
+              return;
+            }
+
+            const quantiteNecessaire = service.quantity || 1;
+            const materielKey = materiel.code;
+            
+            // Debug: vérifier les matériels du tableau
+            console.log(`📦 Traitement matériel tableau:`, {
+              code: service.code,
+              label: service.label,
+              quantity: quantiteNecessaire,
+              materielFound: !!materiel,
+              prixHT: materiel.prix_ht,
+              prixHTFromService: service.prix_ht
+            });
+
+            if (materielsMap.has(materielKey)) {
+              // Matériel déjà présent, additionner les quantités
+              const existing = materielsMap.get(materielKey);
+              existing.quantite += quantiteNecessaire;
+              // Utiliser le prix du service si défini (pour les prix hardcodés)
+              const prixHT = service.prix_ht !== undefined ? service.prix_ht : existing.prixHT;
+              existing.prixHT = prixHT;
+              existing.totalHT = existing.quantite * prixHT;
+            } else {
+              // Nouveau matériel, l'ajouter
+              // Utiliser le prix du service si défini (pour les prix hardcodés comme DISDIV à 15.50€)
+              // Sinon utiliser le prix de la base de données
+              const prixHT = service.prix_ht !== undefined ? service.prix_ht : (materiel.prix_ht || 0);
+              materielsMap.set(materielKey, {
+                code: materiel.code,
+                designation: materiel.designation,
+                quantite: quantiteNecessaire,
+                prixHT: prixHT,
+                totalHT: quantiteNecessaire * prixHT,
+                qte_dynamique: materiel.qte_dynamique,
+                type_produit: 'materiel' // Les matériels du tableau sont toujours des matériels
+              });
+              
+              console.log(`✅ Matériel ajouté au devis:`, {
+                code: materiel.code,
+                designation: materiel.designation,
+                quantite: quantiteNecessaire,
+                prixHT: prixHT,
+                totalHT: quantiteNecessaire * prixHT
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Erreur calcul matériels tableau:`, error);
+      }
+      continue; // Passer au prochain item
+    }
+
+    // Pour les autres items, traiter normalement via prestation_materiel_config
     for (const service of item.services) {
       try {
         // Trouver le code de la prestation

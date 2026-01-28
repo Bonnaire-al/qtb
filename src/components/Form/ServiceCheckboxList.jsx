@@ -79,9 +79,36 @@ const ServicesList = ({ services, selectedServices, onServiceToggle }) => (
 
 // Composant pour le message de sécurité
 const SecurityMessage = () => (
-  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-    <p className="text-yellow-800 text-sm text-center">
+  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+    <p className="text-green-800 text-sm text-center">
       Veuillez d'abord sélectionner un type d'installation pour voir les prestations disponibles.
+    </p>
+  </div>
+);
+
+// Composant pour le message de sélection de pièce (domotique/installation)
+const RoomSelectionMessage = () => (
+  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+    <p className="text-green-800 text-sm text-center">
+      Sélectionnez une pièce pour voir les prestations disponibles.
+    </p>
+  </div>
+);
+
+// Composant pour le message de sélection de prestations
+const SelectPrestationsMessage = () => (
+  <div className="mt-2 mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+    <p className="text-green-800 text-sm text-center">
+      Sélectionnez une ou plusieurs prestations
+    </p>
+  </div>
+);
+
+// Composant pour le message de sélection du passage des câbles
+const SelectCablePassageMessage = () => (
+  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+    <p className="text-green-800 text-sm text-center">
+      Sélectionnez le passage des câbles
     </p>
   </div>
 );
@@ -110,7 +137,8 @@ const ServiceCheckboxList = ({
   onSelectAll,
   onDeselectAll,
   onInstallationTypeChange,
-  onSecurityTypeChange
+  onSecurityTypeChange,
+  serviceType
 }) => {
   // ==================== VARIABLES DÉRIVÉES OPTIMISÉES ====================
   
@@ -118,6 +146,8 @@ const ServiceCheckboxList = ({
   const isSecurity = config.categoryLabel === 'Sécurité';
   const isSecurityWithoutType = isSecurity && !selectedSecurityType;
   const hasSelectedServices = selectedServices.length > 0;
+  const isDomotiqueOrInstallation = serviceType === 'domotique' || serviceType === 'installation';
+  const needsRoomSelection = hasRooms && !selectedRoom && isDomotiqueOrInstallation;
 
   // Conditions d'affichage simplifiées
   const shouldShowServices = (hasRooms && selectedRoom) || hasSpecificServices;
@@ -168,6 +198,11 @@ const ServiceCheckboxList = ({
     { value: 'filaire', label: 'Filaire (système en local)' }
   ], []);
 
+  // Afficher le message de sélection de pièce si nécessaire (domotique/installation)
+  if (needsRoomSelection) {
+    return <RoomSelectionMessage />;
+  }
+
   if (!shouldShowServices) return null;
 
   return (
@@ -187,6 +222,11 @@ const ServiceCheckboxList = ({
       <h3 className="text-base font-semibold text-cyan-800 mb-3">
         {title}
       </h3>
+      
+      {/* Message de sélection de prestations (domotique/installation) */}
+      {isDomotiqueOrInstallation && hasRooms && selectedRoom && (
+        <SelectPrestationsMessage />
+      )}
       
       {/* Boutons de sélection */}
       {shouldShowSelectionButtons && (
@@ -210,6 +250,11 @@ const ServiceCheckboxList = ({
 
       {/* Compteur de prestations sélectionnées */}
       {hasSelectedServices && <SelectedCount count={selectedServices.length} />}
+
+      {/* Message de sélection du passage des câbles (domotique/installation) */}
+      {isDomotiqueOrInstallation && hasSelectedServices && !selectedInstallationType && (
+        <SelectCablePassageMessage />
+      )}
 
       {/* Type d'installation pour domotique/installation */}
       {shouldShowInstallationType && (

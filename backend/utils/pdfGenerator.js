@@ -372,7 +372,7 @@ const createPdfDocument = (formData, devisItems, materielsData, materielsCalcule
         alignment: 'center',
         margin: [0, 20, 0, 10]
       }, {
-        text: `Vous bénéficiez d'une remise de ${totals.discountPercentage}% sur la main d'œuvre grâce à votre commande de plus de ${Math.floor(totals.totalMainOeuvreHT / 1000) * 1000}€.`,
+        text: `Vous bénéficiez d'une remise de ${totals.discountPercentage}% sur la main d'œuvre grâce à votre commande de plus de 1000€.`,
         style: 'discountDescription',
         alignment: 'center',
         margin: [0, 0, 0, 20]
