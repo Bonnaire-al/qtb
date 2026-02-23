@@ -79,8 +79,19 @@ class PrixCalculs {
   // ==================== FONCTION DE CALCUL GÉNÉRIQUE ====================
   
   static calculateServicePrice(serviceLabel, serviceType, prixBase, quantity, coefficient) {
-    const lowerLabel = serviceLabel.toLowerCase();
-    
+    const lowerLabel = (serviceLabel || '').toLowerCase();
+
+    // Exception sécurité : Caméra (industriel) — main d'œuvre forfait par palier (non multipliée par la qté)
+    if (serviceType === 'securite') {
+      const isCameraIndustriel = (lowerLabel.includes('camera') || lowerLabel.includes('caméra')) && lowerLabel.includes('industriel');
+      if (isCameraIndustriel) {
+        const q = Math.max(1, parseInt(quantity, 10) || 1);
+        if (q <= 16) return 350;   // 1 à 16 : 350 € total
+        if (q <= 32) return 450;   // 17 à 32 : 450 € total
+        return 550;                 // 33 et + : 550 € total (pas de × quantité)
+      }
+    }
+
     // Déterminer si c'est un service spécial (domotique/installation uniquement)
     const isSpecialService = (serviceType === 'domotique' || serviceType === 'installation') && 
       (lowerLabel.includes('éclairage') || 

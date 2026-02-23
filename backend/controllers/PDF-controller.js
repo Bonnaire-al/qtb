@@ -3,6 +3,8 @@ const MaterielModel = require('../models/M-model');
 const PrestationModel = require('../models/P-model');
 const PrixCalculs = require('../utils/prixCalculs');
 const CalculMateriel = require('../utils/calculMateriel');
+const RapidConfigModel = require('../models/RapidConfig-model');
+const { calculateDiscount } = require('../utils/pdfCalculs');
 
 class PDFController {
   // Calculer les prix pour tous les services du devis
@@ -132,6 +134,157 @@ class PDFController {
     return materielsData;
   }
 
+  static isRapidMode(formData, devisItems = []) {
+    // Décider uniquement d'après les items : évite de traiter un devis classique en rapide si quoteMode est resté "rapide"
+    const hasRapidItems = Array.isArray(devisItems) && devisItems.some(i => i?.rapid?.group);
+    return !!hasRapidItems;
+  }
+
+  static formatMoney(n) {
+    const v = Number.isFinite(n) ? n : 0;
+    return `${v.toFixed(2)} €`;
+  }
+
+  static async buildRapidSummary(formData, devisItemsWithPrices) {
+    const config = await RapidConfigModel.getConfig();
+    const coefMap = {
+      classic: Number(config.coef_classic) || 1.0,
+      premium: Number(config.coef_premium) || 1.0,
+      luxe: Number(config.coef_luxe) || 1.0
+    };
+
+    const isCompany = formData?.company && formData.company.trim() !== '';
+    const tvaRateMO = isCompany ? 0.20 : 0.10;
+    const tvaLabelMO = isCompany ? '20%' : '10%';
+    const tvaRateMat = 0.20;
+    const tvaLabelMat = '20%';
+
+    const packs = devisItemsWithPrices.filter(i => i?.rapid?.group === 'pack');
+    const securite = devisItemsWithPrices.filter(i => i?.rapid?.group === 'securite');
+    const portail = devisItemsWithPrices.filter(i => i?.rapid?.group === 'portail');
+    const volet = devisItemsWithPrices.filter(i => i?.rapid?.group === 'volet');
+    const tableau = devisItemsWithPrices.filter(i => i?.type === 'tableau');
+
+    const sumServicesHT = (items) =>
+      (items || []).reduce((sum, item) => {
+        if (item?.type === 'tableau') return sum;
+        const s = (item.services || []).reduce((a, srv) => a + (srv.priceHT || 0), 0);
+        return sum + s;
+      }, 0);
+
+    // Main d'œuvre (packs) avec coef par gamme
+    const packMoByGamme = { classic: 0, premium: 0, luxe: 0 };
+    packs.forEach((item) => {
+      const gamme = item?.rapid?.gamme;
+      const base = (item.services || []).reduce((a, srv) => a + (srv.priceHT || 0), 0);
+      if (gamme && packMoByGamme[gamme] !== undefined) {
+        packMoByGamme[gamme] += base;
+      }
+    });
+    const packMoHT = Object.entries(packMoByGamme).reduce((sum, [gamme, base]) => {
+      return sum + base * (coefMap[gamme] || 1.0);
+    }, 0);
+
+    const securiteMoHT = sumServicesHT(securite);
+    const portailMoHT = sumServicesHT(portail);
+    const voletMoHT = sumServicesHT(volet);
+    const tableauMoHT = (tableau || []).reduce((sum, t) => sum + (t.mainOeuvre || 0), 0);
+
+    const totalMainOeuvreHT = packMoHT + securiteMoHT + portailMoHT + voletMoHT + tableauMoHT;
+    const discount = calculateDiscount(totalMainOeuvreHT);
+    const totalMainOeuvreHTAfterDiscount = totalMainOeuvreHT - discount.discountAmount;
+
+    // Matériel (packs) : calculer total par gamme puis appliquer coef, liste globale agrégée sans prix
+    const packMatByGamme = { classic: 0, premium: 0, luxe: 0 };
+    for (const gamme of ['classic', 'premium', 'luxe']) {
+      const items = packs.filter(p => p?.rapid?.gamme === gamme);
+      if (items.length === 0) continue;
+      const res = await CalculMateriel.calculateDevisMateriels(items, true);
+      packMatByGamme[gamme] = res.totalHT || 0;
+    }
+    const packMaterielHT = Object.entries(packMatByGamme).reduce((sum, [gamme, base]) => {
+      return sum + base * (coefMap[gamme] || 1.0);
+    }, 0);
+    const packMaterielsAgg = packs.length > 0
+      ? await CalculMateriel.calculateDevisMateriels(packs, true)
+      : { materiels: [], totalHT: 0 };
+
+    const securiteMaterielsAgg = securite.length > 0
+      ? await CalculMateriel.calculateDevisMateriels(securite, true)
+      : { materiels: [], totalHT: 0 };
+    const portailMaterielsAgg = portail.length > 0
+      ? await CalculMateriel.calculateDevisMateriels(portail, true)
+      : { materiels: [], totalHT: 0 };
+    const voletMaterielsAgg = volet.length > 0
+      ? await CalculMateriel.calculateDevisMateriels(volet, true)
+      : { materiels: [], totalHT: 0 };
+    const tableauMaterielsAgg = tableau.length > 0
+      ? await CalculMateriel.calculateDevisMateriels(tableau, true)
+      : { materiels: [], totalHT: 0 };
+
+    const securiteMaterielHT = securiteMaterielsAgg.totalHT || 0;
+    const portailMaterielHT = portailMaterielsAgg.totalHT || 0;
+    const voletMaterielHT = voletMaterielsAgg.totalHT || 0;
+    const tableauMaterielHT = tableauMaterielsAgg.totalHT || 0;
+
+    const totalMaterielHT = packMaterielHT + securiteMaterielHT + portailMaterielHT + voletMaterielHT + tableauMaterielHT;
+
+    const totalHT = totalMaterielHT + totalMainOeuvreHTAfterDiscount;
+    const totalTVA = totalHT * tvaRateMO;
+    const totalTTC = totalHT + totalTVA;
+
+    const pieceGammes = packs.map(p => {
+      const g = p?.rapid?.gamme || '';
+      const gLabel = g ? g.charAt(0).toUpperCase() + g.slice(1) : '—';
+      return `${p.room}: ${gLabel}`;
+    });
+
+    const asListNoPrice = (agg) =>
+      (agg?.materiels || []).map(m => ({
+        designation: m.designation,
+        quantite: m.quantite
+      }));
+
+    return {
+      coefs: coefMap,
+      tva: {
+        moRate: tvaRateMO,
+        moLabel: tvaLabelMO,
+        matRate: tvaRateMat,
+        matLabel: tvaLabelMat
+      },
+      discount,
+      mainOeuvre: {
+        packHT: packMoHT,
+        securiteHT: securiteMoHT,
+        portailHT: portailMoHT,
+        voletHT: voletMoHT,
+        tableauHT: tableauMoHT,
+        totalHT: totalMainOeuvreHT,
+        totalHTAfterDiscount: totalMainOeuvreHTAfterDiscount
+      },
+      materiel: {
+        packHT: packMaterielHT,
+        securiteHT: securiteMaterielHT,
+        portailHT: portailMaterielHT,
+        voletHT: voletMaterielHT,
+        tableauHT: tableauMaterielHT,
+        totalHT: totalMaterielHT,
+        packList: asListNoPrice(packMaterielsAgg),
+        securiteList: asListNoPrice(securiteMaterielsAgg),
+        portailList: asListNoPrice(portailMaterielsAgg),
+        voletList: asListNoPrice(voletMaterielsAgg),
+        tableauList: asListNoPrice(tableauMaterielsAgg)
+      },
+      pieceGammes,
+      totals: {
+        totalHT,
+        totalTVA,
+        totalTTC
+      }
+    };
+  }
+
   // POST /api/pdf/generate - Générer un PDF de devis
   static async generatePDF(req, res) {
     try {
@@ -142,6 +295,10 @@ class PDFController {
           error: 'Données manquantes. formData et devisItems sont requis.' 
         });
       }
+      const name = (formData.name || '').toString().trim();
+      const email = (formData.email || '').toString().trim();
+      if (!name) return res.status(400).json({ error: 'Nom du client requis.' });
+      if (!email) return res.status(400).json({ error: 'Email du client requis.' });
 
       // ✅ CALCULER LES PRIX ICI (backend) avant de générer le PDF
       const devisItemsWithPrices = await PDFController.calculateDevisItemsPrices(devisItems);
@@ -149,13 +306,21 @@ class PDFController {
       // ✅ NOUVEAU : Calculer les matériels via prestation_materiel_config selon les quantités
       try {
         const materielsCalcules = await CalculMateriel.calculateDevisMateriels(devisItemsWithPrices, true);
-        console.log(`📦 Matériels calculés: ${materielsCalcules.materiels.length} matériels, Total HT: ${materielsCalcules.totalHT}€`);
-        
+        const isRapid = PDFController.isRapidMode(formData, devisItemsWithPrices);
+        console.log(`📦 Matériels calculés: ${materielsCalcules.materiels.length} matériels, Total HT: ${materielsCalcules.totalHT}€${isRapid ? ' (devis rapide)' : ''}`);
+        if (isRapid && materielsCalcules.materiels.length === 0 && devisItemsWithPrices.length > 0) {
+          console.warn('⚠️ Devis rapide: 0 matériel. Vérifiez que les prestations des packs ont des liaisons (Admin > Configuration > Liaisons).');
+        }
         // Pour compatibilité, créer la structure materielsData (vide, juste pour la signature)
         const materielsData = {};
+
+        // Mode devis rapide (résumé) : détection par formData.quoteMode ou par présence de rapid.group dans les items
+        const rapidSummary = isRapid
+          ? await PDFController.buildRapidSummary(formData, devisItemsWithPrices)
+          : null;
         
         // Passer les matériels calculés au générateur PDF (via materielsData vide + materielsCalcules)
-        const pdfBase64 = await generatePDFBase64(formData, devisItemsWithPrices, materielsData, materielsCalcules);
+        const pdfBase64 = await generatePDFBase64(formData, devisItemsWithPrices, materielsData, materielsCalcules, rapidSummary);
         
         res.json({
           success: true,
@@ -195,6 +360,10 @@ class PDFController {
           error: 'Données manquantes. formData et devisItems sont requis.' 
         });
       }
+      const name = (formData.name || '').toString().trim();
+      const email = (formData.email || '').toString().trim();
+      if (!name) return res.status(400).json({ error: 'Nom du client requis.' });
+      if (!email) return res.status(400).json({ error: 'Email du client requis.' });
 
       // ✅ CALCULER LES PRIX ICI (backend) avant de générer le PDF
       const devisItemsWithPrices = await PDFController.calculateDevisItemsPrices(devisItems);
@@ -202,13 +371,20 @@ class PDFController {
       // ✅ NOUVEAU : Calculer les matériels via prestation_materiel_config selon les quantités
       try {
         const materielsCalcules = await CalculMateriel.calculateDevisMateriels(devisItemsWithPrices, true);
-        console.log(`📦 Matériels calculés: ${materielsCalcules.materiels.length} matériels, Total HT: ${materielsCalcules.totalHT}€`);
-        
+        const isRapidDownload = PDFController.isRapidMode(formData, devisItemsWithPrices);
+        console.log(`📦 Matériels calculés: ${materielsCalcules.materiels.length} matériels, Total HT: ${materielsCalcules.totalHT}€${isRapidDownload ? ' (devis rapide)' : ''}`);
+        if (isRapidDownload && materielsCalcules.materiels.length === 0 && devisItemsWithPrices.length > 0) {
+          console.warn('⚠️ Devis rapide: 0 matériel. Vérifiez que les prestations des packs ont des liaisons (Admin > Configuration > Liaisons).');
+        }
         // Pour compatibilité, créer la structure materielsData (vide, juste pour la signature)
         const materielsData = {};
+
+        const rapidSummary = isRapidDownload
+          ? await PDFController.buildRapidSummary(formData, devisItemsWithPrices)
+          : null;
         
         // Passer les matériels calculés au générateur PDF
-        const pdfBuffer = await generatePDFBuffer(formData, devisItemsWithPrices, materielsData, materielsCalcules);
+        const pdfBuffer = await generatePDFBuffer(formData, devisItemsWithPrices, materielsData, materielsCalcules, rapidSummary);
         
         const clientName = formData.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'client';
         const date = new Date().toISOString().split('T')[0];

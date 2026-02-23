@@ -24,7 +24,6 @@ export default function ModalQuote({ formData, onBackToStep1, devisItems = [] })
       };
       existingQuotes.push(newQuote);
       localStorage.setItem('savedQuotes', JSON.stringify(existingQuotes));
-      console.log('✅ Devis sauvegardé avec succès');
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde du devis:', error);
     }

@@ -41,7 +41,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <h4 className="font-bold text-cyan-800 mb-1">Email</h4>
-                    <p className="text-gray-700">contact@electropro.fr</p>
+                    <p className="text-gray-700">bonnaire94@proton.me</p>
                   </div>
                 </div>
                 <div className="flex items-start">
@@ -59,18 +59,24 @@ export default function Contact() {
             </div>
             <div className="mt-8 text-center">
               <h4 className="font-bold text-cyan-800 mb-4">Suivez-nous</h4>
-              <div className="flex justify-center space-x-4">
-                <a href="#" className="bg-cyan-600 text-white p-3 rounded-full hover:bg-cyan-700 transition-colors duration-300 cursor-pointer">
-                  <i className="fab fa-facebook-f"></i>
+              <div className="flex justify-center gap-6 items-center">
+                <a
+                  href="https://www.linkedin.com/in/aala-eddine-bonnaire-63233b300/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block hover:scale-110 transition-transform duration-300 cursor-pointer"
+                  aria-label="LinkedIn"
+                >
+                  <img src="/image/linkedin.png" alt="LinkedIn" className="h-12 w-12 object-contain" />
                 </a>
-                <a href="#" className="bg-cyan-600 text-white p-3 rounded-full hover:bg-cyan-700 transition-colors duration-300 cursor-pointer">
-                  <i className="fab fa-instagram"></i>
-                </a>
-                <a href="#" className="bg-cyan-600 text-white p-3 rounded-full hover:bg-cyan-700 transition-colors duration-300 cursor-pointer">
-                  <i className="fab fa-linkedin-in"></i>
-                </a>
-                <a href="#" className="bg-cyan-600 text-white p-3 rounded-full hover:bg-cyan-700 transition-colors duration-300 cursor-pointer">
-                  <i className="fab fa-youtube"></i>
+                <a
+                  href="https://www.tiktok.com/@qtb.electrotech"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block hover:scale-110 transition-transform duration-300 cursor-pointer"
+                  aria-label="TikTok"
+                >
+                  <img src="/image/tiktok-logo.png" alt="TikTok" className="h-12 w-12 object-contain" />
                 </a>
               </div>
             </div>

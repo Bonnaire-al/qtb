@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Footer = () => {
   const navigate = useNavigate();
@@ -35,29 +35,29 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Colonne 2 - Services */}
+          {/* Colonne 2 - Les pages */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Nos Services</h3>
+            <h3 className="text-lg font-semibold mb-4">Les pages</h3>
             <ul className="space-y-2">
               <li>
-                <a href="#" className="text-cyan-200 hover:text-white transition-colors duration-300">
-                  Installation électrique
-                </a>
+                <Link to="/" className="text-cyan-200 hover:text-white transition-colors duration-300">
+                  Accueil
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-cyan-200 hover:text-white transition-colors duration-300">
-                  Domotique
-                </a>
+                <Link to="/service" className="text-cyan-200 hover:text-white transition-colors duration-300">
+                  Services
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-cyan-200 hover:text-white transition-colors duration-300">
-                  Systémes de sécurité
-                </a>
+                <Link to="/about" className="text-cyan-200 hover:text-white transition-colors duration-300">
+                  À propos
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-cyan-200 hover:text-white transition-colors duration-300">
-                  Dépannage
-                </a>
+                <Link to="/quote" className="text-cyan-200 hover:text-white transition-colors duration-300">
+                  Devis
+                </Link>
               </li>
             </ul>
           </div>

@@ -48,7 +48,9 @@ const DevisItemList = ({
                         <p className="text-xs text-gray-600 mt-1">
                           Type: {item.installationType === 'saignee_encastre' ? 'Saignée/Encastré' : 
                                  item.installationType === 'saillie_moulure' ? 'Saillie/Moulure' :
-                                 item.installationType === 'cloison_creuse' ? 'Cloison creuse' : item.installationType}
+                                 item.installationType === 'cloison_creuse' ? 'Cloison creuse' :
+                                 item.installationType === 'alimentation_existante' ? 'Alimentation existante' :
+                                 item.installationType === 'wifi' ? 'Wifi' : item.installationType}
                         </p>
                       )}
                       {item.alimentation && (

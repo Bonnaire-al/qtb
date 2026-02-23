@@ -63,6 +63,13 @@ export const useFormLogic = (serviceType, tableauData = null) => {
 
   useEffect(() => {
     loadData();
+    // Valeurs par défaut pour activer l'ajout au devis : Sécurité → wifi, Portail → saignée
+    if (serviceType === 'securite') {
+      setSelectedSecurityType('wifi');
+    }
+    if (serviceType === 'portail') {
+      setSelectedInstallationType('saignee_encastre');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceType]);
 
@@ -127,7 +134,6 @@ export const useFormLogic = (serviceType, tableauData = null) => {
   const handlers = {
     submit: (e) => {
       e.preventDefault();
-      console.log('Prestations sélectionnées:', selectedServices);
     },
 
     roomChange: (e) => {
@@ -176,6 +182,10 @@ export const useFormLogic = (serviceType, tableauData = null) => {
   
   // Fonction pour calculer et mettre à jour l'item tableau
   const updateTableauItem = async (currentDevisItems) => {
+    // Pas de tableau électrique pour sécurité et portail
+    if (serviceType === 'securite' || serviceType === 'portail') {
+      return currentDevisItems;
+    }
     // Vérifier si on doit calculer le tableau
     if (!tableauData || tableauData.choice === 'garder') {
       return currentDevisItems;
@@ -268,12 +278,17 @@ export const useFormLogic = (serviceType, tableauData = null) => {
         .filter(Boolean);
     }
 
+    // Sécurité : "Wifi" → type wifi ; "Filaire" → un des 4 types (passage des câbles)
+    const effectiveInstallationType = serviceType === 'securite' && selectedSecurityType === 'wifi'
+      ? 'wifi'
+      : selectedInstallationType;
+
     // Stocker uniquement les données brutes - le backend calculera les prix et coefficients
     const newDevisItem = {
       id: Date.now(),
       room: roomLabel,
       roomValue: roomValue,
-      installationType: selectedInstallationType,
+      installationType: effectiveInstallationType,
       serviceType: serviceType,
       services: selectedServiceLabels.map(label => ({
         label,
@@ -282,18 +297,20 @@ export const useFormLogic = (serviceType, tableauData = null) => {
       completed: false
     };
 
-    // Ajouter la nouvelle prestation
-    setDevisItems(prev => {
-      const updated = [...prev, newDevisItem];
-      // Calculer et mettre à jour l'item tableau si nécessaire (asynchrone)
-      updateTableauItem(updated).then(result => {
-        setDevisItems(result);
-      }).catch(error => {
-        console.error('Erreur mise à jour tableau:', error);
+    // Ajouter la nouvelle prestation (sécurité/portail : pas de tableau, une seule mise à jour state)
+    if (serviceType === 'securite' || serviceType === 'portail') {
+      setDevisItems(prev => [...prev, newDevisItem]);
+    } else {
+      setDevisItems(prev => {
+        const updated = [...prev, newDevisItem];
+        updateTableauItem(updated).then(result => {
+          setDevisItems(result);
+        }).catch(error => {
+          console.error('Erreur mise à jour tableau:', error);
+        });
+        return updated;
       });
-      // Retourner les items mis à jour immédiatement (le tableau sera mis à jour après)
-      return updated;
-    });
+    }
     
     resetForm();
     
@@ -305,18 +322,19 @@ export const useFormLogic = (serviceType, tableauData = null) => {
   };
 
   const removeDevisItem = (itemId) => {
-    setDevisItems(prev => {
-      // Supprimer l'item
-      const filtered = prev.filter(item => item.id !== itemId);
-      // Recalculer le tableau si nécessaire (asynchrone)
-      updateTableauItem(filtered).then(result => {
-        setDevisItems(result);
-      }).catch(error => {
-        console.error('Erreur mise à jour tableau:', error);
+    if (serviceType === 'securite' || serviceType === 'portail') {
+      setDevisItems(prev => prev.filter(item => item.id !== itemId));
+    } else {
+      setDevisItems(prev => {
+        const filtered = prev.filter(item => item.id !== itemId);
+        updateTableauItem(filtered).then(result => {
+          setDevisItems(result);
+        }).catch(error => {
+          console.error('Erreur mise à jour tableau:', error);
+        });
+        return filtered;
       });
-      // Retourner les items filtrés immédiatement (le tableau sera mis à jour après)
-      return filtered;
-    });
+    }
   };
 
   const updateQuantity = (itemId, serviceIndex, quantity) => {
@@ -337,16 +355,13 @@ export const useFormLogic = (serviceType, tableauData = null) => {
       });
       
       // Si on a un choix de tableau et qu'on modifie une prestation (pas un tableau), recalculer le tableau (asynchrone)
-      if (tableauData && tableauData.choice !== 'garder') {
+      if (serviceType !== 'securite' && serviceType !== 'portail' && tableauData && tableauData.choice !== 'garder') {
         updateTableauItem(updated).then(result => {
           setDevisItems(result);
         }).catch(error => {
           console.error('Erreur mise à jour tableau:', error);
         });
-        // Retourner les items mis à jour immédiatement (le tableau sera mis à jour après)
-        return updated;
       }
-      
       return updated;
     });
   };

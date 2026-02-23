@@ -13,13 +13,21 @@ class PrestationModel {
     });
   }
 
-  // Récupérer les prestations par catégorie
+  // Récupérer les prestations par catégorie (insensible à la casse pour compatibilité front/rapide)
   static getByCategorie(categorie) {
     return new Promise((resolve, reject) => {
-      db.all('SELECT * FROM prestations WHERE categorie = ? ORDER BY code, service_label', [categorie], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
+      const cat = (categorie || '').toString().trim();
+      if (!cat) {
+        return resolve([]);
+      }
+      db.all(
+        'SELECT * FROM prestations WHERE LOWER(TRIM(categorie)) = LOWER(?) ORDER BY code, service_label',
+        [cat],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
     });
   }
 
@@ -95,7 +103,7 @@ class PrestationModel {
           if (!materiel) return;
           rows.push({
             config_code: liaison.code,
-            type_installation,
+            type_installation: typeInstallation,
             materiel_code: materiel.code,
             designation: materiel.designation,
             prix_ht: materiel.prix_ht,
@@ -320,7 +328,12 @@ class PrestationModel {
 
   // Récupérer la structure complète pour le formulaire
   static async getFormStructure(serviceType) {
-    const prestations = await this.getByCategorie(serviceType);
+    let prestations = await this.getByCategorie(serviceType);
+    if (!prestations || prestations.length === 0) {
+      const all = await this.getAll();
+      const typeLower = (serviceType || '').toString().trim().toLowerCase();
+      prestations = (all || []).filter(p => (p.categorie || '').toString().trim().toLowerCase() === typeLower);
+    }
 
       // Organiser les prestations par pièce
       const servicesByRoom = {};

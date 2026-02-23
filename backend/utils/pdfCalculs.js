@@ -184,18 +184,31 @@ const createMainOeuvreRows = (devisItems, isCompany = false) => {
   return mainOeuvreRows;
 };
 
-// Créer les lignes du tableau matériel
+// Créer les lignes du tableau matériel (regroupées par code/nom pour éviter les doublons)
 const createMaterielRows = (allMaterials) => {
   const materielRows = [];
   const tvaRate = 0.20; // Matériel toujours à 20%
   const tvaPercentage = '20%';
-  
+
   if (allMaterials.length > 0) {
+    const grouped = new Map();
     allMaterials.forEach((material) => {
-      const totalHT = material.quantite * material.prixHT;
+      const key = material.code || material.nom || material.designation || '';
+      const nom = material.nom || material.designation || key;
+      const quantite = material.quantite || 0;
+      const prixHT = material.prixHT || material.prix_ht || 0;
+      if (grouped.has(key)) {
+        const ex = grouped.get(key);
+        ex.quantite += quantite;
+        ex.totalHT = ex.quantite * ex.prixHT;
+      } else {
+        grouped.set(key, { nom, quantite, prixHT, totalHT: quantite * prixHT });
+      }
+    });
+    grouped.forEach((material) => {
+      const totalHT = material.totalHT;
       const tva = totalHT * tvaRate;
       const totalTTC = totalHT + tva;
-      
       materielRows.push([
         material.nom,
         material.quantite.toString(),
@@ -207,7 +220,7 @@ const createMaterielRows = (allMaterials) => {
   } else {
     materielRows.push(['Matériel nécessaire', '-', 'À définir', tvaPercentage, 'À définir']);
   }
-  
+
   return materielRows;
 };
 

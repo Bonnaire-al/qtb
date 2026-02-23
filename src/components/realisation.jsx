@@ -44,7 +44,7 @@ export default function Realisation() {
               <div className="p-6">
                 <h3 className="text-xl font-bold text-cyan-800 mb-2">Plafonier luminaire personnalisé </h3>
                 <p className="text-gray-600">
-                Sortez des standards avec un plafonnier unique, conçu pour refléter votre style et sublimer chaque espace.e et sécurité via smartphone.
+                Sortez des standards avec un plafonnier unique, conçu pour refléter votre style et sublimer chaque espace et sécurité via smartphone.
                 </p>
               </div>
             </div>

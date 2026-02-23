@@ -97,12 +97,307 @@ const pdfStyles = {
     fontSize: 9,
     color: '#6b7280',
     margin: [0, 0, 0, 3]
+  },
+  rapidSmall: {
+    fontSize: 9,
+    color: '#374151'
+  },
+  rapidMuted: {
+    fontSize: 9,
+    color: '#6b7280'
+  },
+  rapidSection: {
+    fontSize: 12,
+    color: '#1e40af',
+    background: '#dbeafe',
+    margin: [0, 10, 0, 8]
   }
 };
 
+const money = (n) => `${(Number.isFinite(n) ? n : 0).toFixed(2)} €`;
+
+const makeRapidTotalsTable = (title, rows) => ([
+  { text: title, style: 'tableTitle', margin: [0, 0, 0, 10] },
+  {
+    table: {
+      headerRows: 1,
+      widths: ['45%', '20%', '15%', '20%'],
+      body: [
+        [
+          { text: 'Catégorie', style: 'tableHeader' },
+          { text: 'Total HT', style: 'tableHeader' },
+          { text: 'TVA', style: 'tableHeader' },
+          { text: 'Total TTC', style: 'tableHeader' }
+        ],
+        ...rows
+      ]
+    },
+    layout: 'lightHorizontalLines'
+  }
+]);
+
+const makeRapidMaterialList = (title, list) => ([
+  { text: title, style: 'sectionTitle', margin: [0, 10, 0, 6] },
+  ...(list && list.length > 0
+    ? [{
+      ul: list.map(m => `${m.designation} — ${m.quantite}`),
+      style: 'rapidSmall',
+      margin: [0, 0, 0, 0]
+    }]
+    : [{ text: 'Aucun matériel', style: 'rapidMuted' }]
+  )
+]);
+
 // Fonction pour créer la définition du document PDF
-const createPdfDocument = (formData, devisItems, materielsData, materielsCalcules = null) => {
+const createPdfDocument = (formData, devisItems, materielsData, materielsCalcules = null, rapidSummary = null) => {
   const isCompany = formData?.company && formData.company.trim() !== '';
+
+  // MODE RAPIDE (résumé)
+  const rapidMode = !!rapidSummary;
+  if (rapidMode) {
+    const rs = rapidSummary;
+
+    const header = {
+      columns: [
+        {
+          width: 'auto',
+          stack: [
+            { text: 'QTBE', style: 'companyName' },
+            { text: 'Services Électriques', style: 'companySubtitle' }
+          ]
+        },
+        { width: '*', text: '' },
+        {
+          width: 'auto',
+          stack: [{ text: `Date: ${new Date().toLocaleDateString('fr-FR')}`, style: 'date' }]
+        }
+      ],
+      margin: [0, 0, 0, 20]
+    };
+
+    const title = {
+      text: 'DEVIS RAPIDE',
+      style: 'header',
+      alignment: 'center',
+      margin: [0, 0, 0, 20]
+    };
+
+    const info = {
+      columns: [
+        {
+          width: '50%',
+          stack: [
+            { text: 'Informations Client :', style: 'sectionTitle' },
+            { text: `Nom : ${formData?.name || 'Non renseigné'}`, style: 'infoText' },
+            { text: `Email : ${formData?.email || 'Non renseigné'}`, style: 'infoText' },
+            { text: `Tél : ${formData?.phone || 'Non renseigné'}`, style: 'infoText' }
+          ]
+        },
+        {
+          width: '50%',
+          stack: [
+            { text: 'Informations Projet :', style: 'sectionTitle' },
+            { text: `Adresse : ${formData?.address || 'Non renseigné'}`, style: 'infoText' },
+            ...(formData?.company ? [{ text: `Entreprise : ${formData.company}`, style: 'infoText' }] : []),
+            { text: isCompany ? 'TVA 20% (Entreprise)' : 'TVA 10% (Particulier)', style: 'infoText' }
+          ]
+        }
+      ],
+      margin: [0, 0, 0, 10]
+    };
+
+    const moRows = [
+      [
+        { text: 'Packs (pièces)', style: 'rapidSmall' },
+        { text: money(rs.mainOeuvre.packHT), style: 'rapidSmall', alignment: 'right' },
+        { text: rs.tva.moLabel, style: 'rapidSmall', alignment: 'center' },
+        { text: money(rs.mainOeuvre.packHT * (1 + rs.tva.moRate)), style: 'rapidSmall', alignment: 'right' }
+      ],
+      [
+        { text: 'Sécurité', style: 'rapidSmall' },
+        { text: money(rs.mainOeuvre.securiteHT), style: 'rapidSmall', alignment: 'right' },
+        { text: rs.tva.moLabel, style: 'rapidSmall', alignment: 'center' },
+        { text: money(rs.mainOeuvre.securiteHT * (1 + rs.tva.moRate)), style: 'rapidSmall', alignment: 'right' }
+      ],
+      [
+        { text: 'Portail', style: 'rapidSmall' },
+        { text: money(rs.mainOeuvre.portailHT), style: 'rapidSmall', alignment: 'right' },
+        { text: rs.tva.moLabel, style: 'rapidSmall', alignment: 'center' },
+        { text: money(rs.mainOeuvre.portailHT * (1 + rs.tva.moRate)), style: 'rapidSmall', alignment: 'right' }
+      ],
+      [
+        { text: 'Volet roulant', style: 'rapidSmall' },
+        { text: money(rs.mainOeuvre.voletHT), style: 'rapidSmall', alignment: 'right' },
+        { text: rs.tva.moLabel, style: 'rapidSmall', alignment: 'center' },
+        { text: money(rs.mainOeuvre.voletHT * (1 + rs.tva.moRate)), style: 'rapidSmall', alignment: 'right' }
+      ],
+      [
+        { text: 'Tableau électrique', style: 'rapidSmall' },
+        { text: money(rs.mainOeuvre.tableauHT), style: 'rapidSmall', alignment: 'right' },
+        { text: rs.tva.moLabel, style: 'rapidSmall', alignment: 'center' },
+        { text: money(rs.mainOeuvre.tableauHT * (1 + rs.tva.moRate)), style: 'rapidSmall', alignment: 'right' }
+      ]
+    ];
+
+    // Totaux MO (avec remise si applicable)
+    moRows.push([
+      { text: 'Total Main d’œuvre HT', style: 'totalRow' },
+      { text: money(rs.mainOeuvre.totalHT), style: 'totalRow', alignment: 'right' },
+      { text: '', style: 'totalRow' },
+      { text: '', style: 'totalRow' }
+    ]);
+    if (rs.discount?.hasDiscount) {
+      moRows.push([
+        { text: `Remise (${rs.discount.discountPercentage}%) sur main d’œuvre`, style: 'discountRow' },
+        { text: `-${money(rs.discount.discountAmount)}`, style: 'discountRow', alignment: 'right' },
+        { text: '', style: 'discountRow' },
+        { text: '', style: 'discountRow' }
+      ]);
+      moRows.push([
+        { text: 'Main d’œuvre HT après remise', style: 'totalRow' },
+        { text: money(rs.mainOeuvre.totalHTAfterDiscount), style: 'totalRow', alignment: 'right' },
+        { text: '', style: 'totalRow' },
+        { text: '', style: 'totalRow' }
+      ]);
+    }
+
+    const matRows = [
+      [
+        { text: 'Packs (pièces)', style: 'rapidSmall' },
+        { text: money(rs.materiel.packHT), style: 'rapidSmall', alignment: 'right' },
+        { text: rs.tva.matLabel, style: 'rapidSmall', alignment: 'center' },
+        { text: money(rs.materiel.packHT * (1 + rs.tva.matRate)), style: 'rapidSmall', alignment: 'right' }
+      ],
+      [
+        { text: 'Sécurité', style: 'rapidSmall' },
+        { text: money(rs.materiel.securiteHT), style: 'rapidSmall', alignment: 'right' },
+        { text: rs.tva.matLabel, style: 'rapidSmall', alignment: 'center' },
+        { text: money(rs.materiel.securiteHT * (1 + rs.tva.matRate)), style: 'rapidSmall', alignment: 'right' }
+      ],
+      [
+        { text: 'Portail', style: 'rapidSmall' },
+        { text: money(rs.materiel.portailHT), style: 'rapidSmall', alignment: 'right' },
+        { text: rs.tva.matLabel, style: 'rapidSmall', alignment: 'center' },
+        { text: money(rs.materiel.portailHT * (1 + rs.tva.matRate)), style: 'rapidSmall', alignment: 'right' }
+      ],
+      [
+        { text: 'Volet roulant', style: 'rapidSmall' },
+        { text: money(rs.materiel.voletHT), style: 'rapidSmall', alignment: 'right' },
+        { text: rs.tva.matLabel, style: 'rapidSmall', alignment: 'center' },
+        { text: money(rs.materiel.voletHT * (1 + rs.tva.matRate)), style: 'rapidSmall', alignment: 'right' }
+      ],
+      [
+        { text: 'Tableau électrique', style: 'rapidSmall' },
+        { text: money(rs.materiel.tableauHT), style: 'rapidSmall', alignment: 'right' },
+        { text: rs.tva.matLabel, style: 'rapidSmall', alignment: 'center' },
+        { text: money(rs.materiel.tableauHT * (1 + rs.tva.matRate)), style: 'rapidSmall', alignment: 'right' }
+      ],
+      [
+        { text: 'Total Matériel HT', style: 'totalRow' },
+        { text: money(rs.materiel.totalHT), style: 'totalRow', alignment: 'right' },
+        { text: '', style: 'totalRow' },
+        { text: '', style: 'totalRow' }
+      ]
+    ];
+
+    const grandTotalTable = {
+      columns: [
+        { width: '*', text: '' },
+        {
+          width: 'auto',
+          table: {
+            widths: ['auto', 'auto'],
+            body: [
+              [{ text: 'Total HT :', style: 'totalRow' }, { text: money(rs.totals.totalHT), style: 'totalRow' }],
+              [{ text: `TVA (${(rs.tva.moRate * 100).toFixed(0)}%) :`, style: 'totalRow' }, { text: money(rs.totals.totalTVA), style: 'totalRow' }],
+              [{ text: 'Total TTC :', style: 'totalTTC' }, { text: money(rs.totals.totalTTC), style: 'totalTTC' }]
+            ]
+          },
+          layout: 'lightHorizontalLines'
+        }
+      ],
+      margin: [0, 10, 0, 10]
+    };
+
+    const pieceListBlock = rs.pieceGammes && rs.pieceGammes.length > 0
+      ? [{ text: 'Pièces sélectionnées (gamme)', style: 'sectionTitle', margin: [0, 10, 0, 6] },
+        { ul: rs.pieceGammes, style: 'rapidSmall' }]
+      : [{ text: 'Aucune pièce sélectionnée', style: 'rapidMuted' }];
+
+    // Une seule liste matériel regroupée (pas de doublon) : priorité materielsCalcules global, sinon fusion des 5 listes rapidSummary
+    const mergedMaterialList = (() => {
+      if (materielsCalcules && materielsCalcules.materiels && materielsCalcules.materiels.length > 0) {
+        const byCode = new Map();
+        materielsCalcules.materiels.forEach(m => {
+          const code = m.code || m.designation;
+          if (byCode.has(code)) {
+            const ex = byCode.get(code);
+            ex.quantite = (ex.quantite || 0) + (m.quantite || 0);
+          } else {
+            byCode.set(code, { designation: m.designation || m.nom, quantite: m.quantite || 0 });
+          }
+        });
+        return Array.from(byCode.values()).map(m => ({ designation: m.designation, quantite: m.quantite }));
+      }
+      const all = [
+        ...(rs.materiel.packList || []),
+        ...(rs.materiel.securiteList || []),
+        ...(rs.materiel.portailList || []),
+        ...(rs.materiel.voletList || []),
+        ...(rs.materiel.tableauList || [])
+      ];
+      const byDesignation = new Map();
+      all.forEach(m => {
+        const d = m.designation || m.nom || '';
+        if (byDesignation.has(d)) {
+          byDesignation.get(d).quantite += m.quantite || 0;
+        } else {
+          byDesignation.set(d, { designation: d, quantite: m.quantite || 0 });
+        }
+      });
+      return Array.from(byDesignation.values());
+    })();
+
+    const content = [
+      header,
+      title,
+      info,
+      ...makeRapidTotalsTable('Main d\'œuvre (résumé)', moRows),
+      ...pieceListBlock,
+      ...makeRapidTotalsTable('Matériel (résumé)', matRows),
+      ...makeRapidMaterialList('Matériel', mergedMaterialList),
+      grandTotalTable,
+      { text: 'Conditions', style: 'sectionTitle', margin: [0, 20, 0, 10] },
+      {
+        columns: [
+          {
+            width: '50%',
+            stack: [
+              { text: '• Valable 30 jours', style: 'conditionText' },
+              { text: '• Prix HT + TVA applicable', style: 'conditionText' },
+              { text: '• Délai selon complexité', style: 'conditionText' }
+            ]
+          },
+          {
+            width: '50%',
+            stack: [
+              { text: '• Garantie conforme normes', style: 'conditionText' },
+              { text: '• 30% commande, 70% livraison', style: 'conditionText' },
+              { text: '• Engagement ferme', style: 'conditionText' }
+            ]
+          }
+        ]
+      }
+    ];
+
+    return {
+      pageSize: 'A4',
+      pageMargins: [40, 60, 40, 60],
+      content,
+      styles: pdfStyles,
+      defaultStyle: { fontSize: 9 }
+    };
+  }
   
   // NOUVEAU : Utiliser les matériels calculés si fournis, sinon ancienne méthode
   let totals;
@@ -413,10 +708,10 @@ const createPdfDocument = (formData, devisItems, materielsData, materielsCalcule
 };
 
 // Fonction pour générer le PDF et retourner le buffer
-const generatePDFBuffer = (formData, devisItems, materielsData, materielsCalcules = null) => {
+const generatePDFBuffer = (formData, devisItems, materielsData, materielsCalcules = null, rapidSummary = null) => {
   return new Promise((resolve, reject) => {
     try {
-      const docDefinition = createPdfDocument(formData, devisItems, materielsData, materielsCalcules);
+      const docDefinition = createPdfDocument(formData, devisItems, materielsData, materielsCalcules, rapidSummary);
       const pdfDoc = pdfMake.createPdf(docDefinition);
       
       pdfDoc.getBuffer((buffer) => {
@@ -429,10 +724,10 @@ const generatePDFBuffer = (formData, devisItems, materielsData, materielsCalcule
 };
 
 // Fonction pour générer le PDF en base64
-const generatePDFBase64 = (formData, devisItems, materielsData, materielsCalcules = null) => {
+const generatePDFBase64 = (formData, devisItems, materielsData, materielsCalcules = null, rapidSummary = null) => {
   return new Promise((resolve, reject) => {
     try {
-      const docDefinition = createPdfDocument(formData, devisItems, materielsData, materielsCalcules);
+      const docDefinition = createPdfDocument(formData, devisItems, materielsData, materielsCalcules, rapidSummary);
       const pdfDoc = pdfMake.createPdf(docDefinition);
       
       pdfDoc.getBase64((data) => {

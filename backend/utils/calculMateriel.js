@@ -10,8 +10,21 @@ const LiaisonModel = require('../models/Liaison-model');
  */
 async function findPrestationCodeByLabel(serviceLabel, serviceType) {
   try {
-    const prestations = await PrestationModel.getByCategorie(serviceType);
-    
+    if (!serviceLabel || typeof serviceLabel !== 'string') return null;
+    const labelTrim = serviceLabel.trim();
+    if (!labelTrim) return null;
+
+    let prestations = await PrestationModel.getByCategorie(serviceType);
+    if (!prestations || prestations.length === 0) {
+      const all = await PrestationModel.getAll();
+      const typeLower = (serviceType || '').toLowerCase();
+      prestations = (all || []).filter(p => (p.categorie || '').toLowerCase() === typeLower);
+    }
+
+    // Si le "label" est en fait un code prestation (ex: Pinst001, Pdom002), l'utiliser directement
+    const byCode = prestations.find(p => (p.code || '').toLowerCase() === labelTrim.toLowerCase());
+    if (byCode && byCode.code) return byCode.code;
+
     // Chercher par correspondance exacte
     let found = prestations.find(p => p.service_label === serviceLabel);
     if (found && found.code) {
@@ -38,8 +51,18 @@ async function findPrestationCodeByLabel(serviceLabel, serviceType) {
         dbKeywords.some(dbKw => dbKw.includes(searchKw) || searchKw.includes(dbKw))
       );
     });
+    if (found && found.code) return found.code;
+
+    // Fallback devis rapide : chercher dans TOUTES les prestations (packs peuvent mélanger Installation/Domotique)
+    const all = await PrestationModel.getAll();
+    const allList = all || [];
+    const byCodeAll = allList.find(p => (p.code || '').toLowerCase() === labelTrim.toLowerCase());
+    if (byCodeAll && byCodeAll.code) return byCodeAll.code;
+    const byLabelAll = allList.find(p => (p.service_label || '').trim() === labelTrim || 
+      (p.service_label || '').toLowerCase().trim() === labelTrim.toLowerCase());
+    if (byLabelAll && byLabelAll.code) return byLabelAll.code;
     
-    return found && found.code ? found.code : null;
+    return null;
   } catch (error) {
     console.error(`❌ Erreur recherche code prestation pour ${serviceLabel}:`, error);
     return null;
@@ -60,6 +83,8 @@ async function calculateMaterielsFromPrestations(devisItems) {
       totalHT: 0
     };
   }
+
+  console.log('📋 Calcul matériel: entrée', devisItems.length, 'items (serviceTypes:', [...new Set(devisItems.map(i => i.serviceType))].join(', ') + ')');
   
   // Parcourir tous les items du devis
   for (const item of devisItems) {
@@ -144,30 +169,39 @@ async function calculateMaterielsFromPrestations(devisItems) {
     }
 
     // Pour les autres items, traiter normalement via prestation_materiel_config
+    const itemServiceType = item.serviceType || 'installation';
+    const defaultInstallType = itemServiceType === 'securite' ? 'wifi' : 'saignee_encastre';
+    const typeInstallation = item.installationType || defaultInstallType;
+
     for (const service of item.services) {
       try {
-        // Trouver le code de la prestation
-        const prestationCode = await findPrestationCodeByLabel(
-          service.label,
-          item.serviceType
-        );
-        
+        // Code prestation : priorité au code envoyé (devis rapide / packs), sinon recherche par label
+        let prestationCode = (service.code && String(service.code).trim()) || null;
         if (!prestationCode) {
-          console.warn(`⚠️ Code prestation non trouvé pour: ${service.label}`);
+          prestationCode = await findPrestationCodeByLabel(
+            service.label || service.service_label,
+            itemServiceType
+          );
+        }
+        if (!prestationCode) {
+          console.warn(`⚠️ Code prestation non trouvé pour: ${service.label || service.code} (catégorie: ${itemServiceType})`);
           continue;
         }
         
-        // Récupérer le type d'installation
-        const typeInstallation = item.installationType || 'saignee_encastre';
-        
         // Récupérer les matériels liés via prestation_materiel_config
-        const liaisons = await LiaisonModel.getByPrestationAndType(
+        let liaisons = await LiaisonModel.getByPrestationAndType(
           prestationCode,
           typeInstallation
         );
-        
         if (liaisons.length === 0) {
-          console.warn(`⚠️ Aucun matériel trouvé pour prestation ${prestationCode} avec type ${typeInstallation}`);
+          const anyLiaisons = await LiaisonModel.getByPrestation(prestationCode);
+          if (anyLiaisons.length > 0) {
+            liaisons = [anyLiaisons[0]];
+            console.log(`📋 Matériel: fallback liaison pour ${prestationCode} (type demandé: ${typeInstallation})`);
+          }
+        }
+        if (liaisons.length === 0) {
+          console.warn(`⚠️ Aucun matériel trouvé pour prestation ${prestationCode} (type ${typeInstallation}). Créez des liaisons en Admin > Configuration.`);
           continue;
         }
 
@@ -242,6 +276,10 @@ async function calculateMaterielsFromPrestations(devisItems) {
   // Convertir la Map en tableau
   const materiels = Array.from(materielsMap.values());
   
+  if (materiels.length === 0 && devisItems.length > 0) {
+    console.warn('📋 Calcul matériel: 0 matériel trouvé. Vérifiez Admin > Configuration > Liaisons : au moins une liaison (prestation + type d\'installation + matériels) par prestation utilisée.');
+  }
+
   // Calculer le total HT
   const totalHT = materiels.reduce((total, materiel) => {
     return total + materiel.totalHT;

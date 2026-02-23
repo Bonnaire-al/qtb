@@ -40,10 +40,27 @@ class LiaisonModel {
         [prestationCode],
         (err, rows) => {
           if (err) return reject(err);
+          const typeLower = (typeInstallation || '').toLowerCase();
           const matches = (rows || [])
             .map(this.hydrateLists)
-            .filter(liaison => liaison.types_installation.includes(typeInstallation));
+            .filter(liaison => (liaison.types_installation || []).some(t => (t || '').toLowerCase() === typeLower));
           resolve(matches);
+        }
+      );
+    });
+  }
+
+  /** Toutes les liaisons pour une prestation (pour fallback si aucun type ne matche) */
+  static getByPrestation(prestationCode) {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, code, prestation_code, types_installation, materiel_codes
+         FROM liaisons
+         WHERE prestation_code = ?`,
+        [prestationCode],
+        (err, rows) => {
+          if (err) return reject(err);
+          resolve((rows || []).map(this.hydrateLists));
         }
       );
     });
@@ -62,7 +79,7 @@ class LiaisonModel {
       throw new Error('Au moins un matériel doit être sélectionné.');
     }
 
-    const finalCode = code || (await this.generateCode(prestation_code));
+    const finalCode = code || (await this.generateCode());
 
     return new Promise((resolve, reject) => {
       db.run(
@@ -201,7 +218,7 @@ class LiaisonModel {
     };
   }
 
-  static generateCode(prestationCode) {
+  static generateCode() {
     return new Promise((resolve, reject) => {
       // Chercher le dernier code de liaison
       db.all(

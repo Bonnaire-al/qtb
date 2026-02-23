@@ -181,27 +181,26 @@ const Admin = () => {
     setSavedQuotes(quotes);
   }, []);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (password === 'admin123') {
+    try {
+      await ApiService.loginAdmin(password);
       setIsAuthenticated(true);
-      localStorage.setItem('adminAuth', 'true');
-    } else {
-      alert('Mot de passe incorrect');
+      setPassword('');
+    } catch (err) {
+      alert(err.message || 'Mot de passe incorrect');
     }
   };
 
   const handleLogout = () => {
+    ApiService.logoutAdmin();
     setIsAuthenticated(false);
-    localStorage.removeItem('adminAuth');
     setPassword('');
   };
 
   useEffect(() => {
-    const auth = localStorage.getItem('adminAuth');
-    if (auth === 'true') {
-      setIsAuthenticated(true);
-    }
+    const token = localStorage.getItem('adminToken');
+    if (token) setIsAuthenticated(true);
   }, []);
 
   // Composant de connexion
@@ -240,7 +239,7 @@ const Admin = () => {
               Se connecter
             </button>
             <p className="text-xs text-gray-500 mt-4 text-center">
-              Mot de passe par défaut : admin123
+              Mot de passe défini côté serveur (variable ADMIN_PASSWORD)
             </p>
           </form>
         </div>
@@ -328,6 +327,32 @@ const Admin = () => {
               </svg>
               Devis ({savedQuotes.length})
             </button>
+            <button
+              onClick={() => setActiveTab('rapid')}
+              className={`${
+                activeTab === 'rapid'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Devis rapide config
+            </button>
+            <button
+              onClick={() => setActiveTab('avis')}
+              className={`${
+                activeTab === 'avis'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+              Avis clients
+            </button>
           </nav>
         </div>
 
@@ -337,6 +362,270 @@ const Admin = () => {
           {activeTab === 'prestation' && <PrestationManager />}
           {activeTab === 'config' && <ConfigManager />}
           {activeTab === 'devis' && <DevisManager quotes={savedQuotes} setQuotes={setSavedQuotes} />}
+          {activeTab === 'rapid' && <RapidDevisConfig onUnauthorized={() => { ApiService.logoutAdmin(); setIsAuthenticated(false); }} />}
+          {activeTab === 'avis' && <AvisManager />}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Configuration Devis Rapide (packs + coefficients)
+const RapidDevisConfig = ({ onUnauthorized }) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [config, setConfig] = useState({ coef_classic: 1, coef_premium: 1, coef_luxe: 1 });
+  const [packs, setPacks] = useState([]);
+  const [prestationsInstallation, setPrestationsInstallation] = useState([]);
+
+  const [selectedPackId, setSelectedPackId] = useState('');
+  const [newPrestationCode, setNewPrestationCode] = useState('');
+  const [newPrestationQty, setNewPrestationQty] = useState(1);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [{ config: cfg, packs: pk }, prestations] = await Promise.all([
+        ApiService.getRapidConfig(),
+        ApiService.getPrestationsByCategorie('installation')
+      ]);
+      setConfig(cfg || { coef_classic: 1, coef_premium: 1, coef_luxe: 1 });
+      setPacks(pk || []);
+      setPrestationsInstallation(prestations || []);
+
+      // default sélection pack
+      if (!selectedPackId && pk && pk.length > 0) {
+        setSelectedPackId(String(pk[0].id));
+      }
+    } catch (e) {
+      if (e?.message?.toLowerCase().includes('autorisé') && typeof onUnauthorized === 'function') {
+        onUnauthorized();
+      } else {
+        setError(e?.message || 'Erreur chargement config devis rapide');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedPackId, onUnauthorized]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const selectedPack = useMemo(
+    () => (packs || []).find(p => String(p.id) === String(selectedPackId)),
+    [packs, selectedPackId]
+  );
+
+  const saveCoefs = async () => {
+    try {
+      await ApiService.updateRapidConfig(config);
+      await load();
+      alert('Coefficients sauvegardés.');
+    } catch (e) {
+      alert(e?.message || 'Erreur sauvegarde coefficients');
+    }
+  };
+
+  const addItem = async () => {
+    if (!selectedPackId) return;
+    if (!newPrestationCode) {
+      alert('Sélectionnez une prestation');
+      return;
+    }
+    try {
+      await ApiService.addRapidPackItem(selectedPackId, newPrestationCode, newPrestationQty);
+      setNewPrestationCode('');
+      setNewPrestationQty(1);
+      await load();
+    } catch (e) {
+      alert(e?.message || 'Erreur ajout pack');
+    }
+  };
+
+  const updateItemQty = async (itemId, qty) => {
+    try {
+      await ApiService.updateRapidPackItem(itemId, qty);
+      await load();
+    } catch (e) {
+      alert(e?.message || 'Erreur mise à jour quantité');
+    }
+  };
+
+  const deleteItem = async (itemId) => {
+    if (!window.confirm('Supprimer cet élément du pack ?')) return;
+    try {
+      await ApiService.deleteRapidPackItem(itemId);
+      await load();
+    } catch (e) {
+      alert(e?.message || 'Erreur suppression');
+    }
+  };
+
+  if (loading) return <div className="text-center py-8">Chargement...</div>;
+  if (error) return <div className="text-center py-8 text-red-600">Erreur : {error}</div>;
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6 space-y-8">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Devis rapide — Configuration</h2>
+        <p className="text-sm text-gray-600">
+          Configurez les packs (composition en prestations) et les coefficients Classic/Premium/Luxe.
+        </p>
+      </div>
+
+      {/* Coefficients */}
+      <div className="border border-gray-200 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Coefficients (appliqués au total main d'œuvre + matériel des packs)</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Classic</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={config.coef_classic}
+              onChange={(e) => setConfig(prev => ({ ...prev, coef_classic: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Premium</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={config.coef_premium}
+              onChange={(e) => setConfig(prev => ({ ...prev, coef_premium: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Luxe</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={config.coef_luxe}
+              onChange={(e) => setConfig(prev => ({ ...prev, coef_luxe: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <button
+            onClick={saveCoefs}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+          >
+            Sauvegarder
+          </button>
+        </div>
+      </div>
+
+      {/* Packs */}
+      <div className="border border-gray-200 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Packs (composition en prestations)</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Pack</label>
+            <select
+              value={selectedPackId}
+              onChange={(e) => setSelectedPackId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black"
+            >
+              {(packs || []).map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.pack_type} — {p.gamme}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-2">
+              Astuce : les packs sont appliqués par pièce sélectionnée dans le devis rapide.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ajouter une prestation</label>
+            <div className="flex gap-2">
+              <select
+                value={newPrestationCode}
+                onChange={(e) => setNewPrestationCode(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black"
+              >
+                <option value="">Sélectionner...</option>
+                {prestationsInstallation.map(p => (
+                  <option key={p.id} value={p.code}>
+                    {p.code} — {p.service_label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={newPrestationQty}
+                onChange={(e) => setNewPrestationQty(e.target.value)}
+                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-black"
+              />
+              <button
+                onClick={addItem}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-2 rounded-lg transition-colors text-sm"
+              >
+                Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <h4 className="text-sm font-semibold text-gray-800 mb-2">Contenu du pack</h4>
+          {!selectedPack ? (
+            <p className="text-sm text-gray-500">Aucun pack sélectionné.</p>
+          ) : (selectedPack.items || []).length === 0 ? (
+            <p className="text-sm text-gray-500">Pack vide. Ajoutez des prestations.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prestation</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qté</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {(selectedPack.items || []).map(item => (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        <div className="font-mono text-xs text-gray-600">{item.prestation_code}</div>
+                        <div className="text-sm text-black">{item.service_label || item.prestation_code}</div>
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          defaultValue={item.quantity}
+                          onBlur={(e) => updateItemQty(item.id, e.target.value)}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm text-black"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <button
+                          onClick={() => deleteItem(item.id)}
+                          className="text-red-600 hover:text-red-900 text-sm"
+                          title="Supprimer"
+                        >
+                          Supprimer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -927,7 +1216,8 @@ const ConfigManager = () => {
     { value: 'saignee_encastre', label: 'Saignée / Encastré' },
     { value: 'saillie_moulure', label: 'Saillie / Moulure' },
     { value: 'cloison_creuse', label: 'Cloison creuse' },
-    { value: 'alimentation_existante', label: 'Alimentation existante' }
+    { value: 'alimentation_existante', label: 'Alimentation existante' },
+    { value: 'wifi', label: 'Wifi' }
   ];
 
   const resetNewConfig = useCallback(() => {
@@ -2006,6 +2296,153 @@ const DevisManager = ({ quotes, setQuotes }) => {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Gestion des avis clients (notation 5 étoiles, compte Google, modifier / supprimer)
+const AvisManager = () => {
+  const [avisList, setAvisList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ author_name: '', comment: '', stars: 5, google_account: '' });
+
+  const loadAvis = async () => {
+    try {
+      setLoading(true);
+      const data = await ApiService.getAvis();
+      setAvisList(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setAvisList([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAvis();
+  }, []);
+
+  const startEdit = (avis) => {
+    setEditingId(avis.id);
+    setEditForm({ author_name: avis.author_name || '', comment: avis.comment || '', stars: avis.stars ?? 5, google_account: avis.google_account || '' });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ author_name: '', comment: '', stars: 5, google_account: '' });
+  };
+
+  const saveEdit = async () => {
+    if (editingId == null) return;
+    try {
+      await ApiService.updateAvis(editingId, editForm);
+      setEditingId(null);
+      setEditForm({ author_name: '', comment: '', stars: 5, google_account: '' });
+      await loadAvis();
+    } catch (err) {
+      alert(err.message || 'Erreur lors de la mise à jour');
+    }
+  };
+
+  const deleteAvis = async (id) => {
+    if (!window.confirm('Supprimer cet avis ?')) return;
+    try {
+      await ApiService.deleteAvis(id);
+      await loadAvis();
+    } catch (err) {
+      alert(err.message || 'Erreur lors de la suppression');
+    }
+  };
+
+  const formatDate = (str) => {
+    if (!str) return '';
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? str : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const StarDisplay = ({ value, max = 5 }) => (
+    <span className="flex gap-0.5 text-yellow-500">
+      {Array.from({ length: max }, (_, i) => (
+        <span key={i}>{i < value ? '★' : '☆'}</span>
+      ))}
+    </span>
+  );
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">Avis clients</h2>
+      {loading ? (
+        <p className="text-gray-500">Chargement…</p>
+      ) : avisList.length === 0 ? (
+        <p className="text-gray-500">Aucun avis.</p>
+      ) : (
+        <div className="space-y-4">
+          {avisList.map((avis) => (
+            <div key={avis.id} className="border border-gray-200 rounded-lg p-4">
+              {editingId === avis.id ? (
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={editForm.author_name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, author_name: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    placeholder="Nom"
+                  />
+                  <input
+                    type="text"
+                    value={editForm.google_account}
+                    onChange={(e) => setEditForm((f) => ({ ...f, google_account: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    placeholder="Compte Google"
+                  />
+                  <textarea
+                    value={editForm.comment}
+                    onChange={(e) => setEditForm((f) => ({ ...f, comment: e.target.value }))}
+                    rows={3}
+                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    placeholder="Commentaire"
+                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Note :</span>
+                    <select
+                      value={editForm.stars}
+                      onChange={(e) => setEditForm((f) => ({ ...f, stars: parseInt(e.target.value, 10) }))}
+                      className="border border-gray-300 rounded px-2 py-1 text-sm"
+                    >
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>{n} / 5</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={saveEdit} className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Enregistrer</button>
+                    <button onClick={cancelEdit} className="px-3 py-1 bg-gray-200 text-gray-800 rounded text-sm hover:bg-gray-300">Annuler</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <StarDisplay value={Math.min(5, avis.stars || 0)} />
+                      <span className="text-gray-600 text-sm">{Math.min(5, avis.stars || 0)}/5</span>
+                      <span className="font-medium text-gray-900">{avis.author_name || 'Anonyme'}</span>
+                      <span className="text-gray-400 text-sm">{formatDate(avis.created_at)}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => startEdit(avis)} className="text-blue-600 hover:text-blue-800 text-sm">Modifier</button>
+                      <button onClick={() => deleteAvis(avis.id)} className="text-red-600 hover:text-red-800 text-sm">Supprimer</button>
+                    </div>
+                  </div>
+                  {avis.google_account && <p className="mt-1 text-gray-500 text-xs">Compte Google : {avis.google_account}</p>}
+                  <p className="mt-2 text-gray-700 text-sm">{avis.comment}</p>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

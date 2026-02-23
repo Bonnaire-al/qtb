@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Form from '../components/Form/Form';
 import ModalQuote from '../components/modal-pdf/ModalQuote';
 import TableauElectriqueModal from '../components/Form/TableauElectriqueModal';
@@ -6,6 +6,7 @@ import TableauChangeModal from '../components/Form/TableauChangeModal';
 import { useTableauLogic } from '../components/Form/useTableauLogic';
 import ApiService from '../services/api';
 import { useModalAnimation } from '../hooks/useModalAnimation';
+import QuoteRapid from '../components/Form/QuoteRapid/QuoteRapid';
 
 const ANIMATION_DURATION = 400;
 
@@ -18,6 +19,11 @@ const SERVICES = [
 ];
 
 function Quote() {
+  // Remonter en haut de la page à l'arrivée sur le devis
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
@@ -27,22 +33,32 @@ function Quote() {
     company: '',
     service: '',
   });
-  const [showModal, setShowModal] = useState(false);
+  // Nouvel enchaînement: centre (Grand/Petit) -> droite (Personnalisé/Rapide) -> droite (4 services) ou (devis rapide)
+  const [showWorkTypeModal, setShowWorkTypeModal] = useState(false); // centre
+  const [showQuoteModeModal, setShowQuoteModeModal] = useState(false); // droite
+  const [showServiceChoiceModal, setShowServiceChoiceModal] = useState(false); // droite (4 services)
+  const [serviceChoiceReturnTo, setServiceChoiceReturnTo] = useState('workType'); // 'workType' | 'quoteMode'
+  const [showRapidModal, setShowRapidModal] = useState(false); // droite
+
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [devisItems, setDevisItems] = useState([]);
   const [tableauData, setTableauData] = useState(null);
+  const lastFormServiceRef = useRef(null);
 
   // Hook pour gérer la logique du tableau électrique
   const tableauLogic = useTableauLogic();
 
   // Animations des modals avec le hook
   const serviceModalAnim = useModalAnimation(showServiceModal);
+  const quoteModeModalAnim = useModalAnimation(showQuoteModeModal);
+  const serviceChoiceModalAnim = useModalAnimation(showServiceChoiceModal);
+  const rapidModalAnim = useModalAnimation(showRapidModal);
   const tableauModalAnim = useModalAnimation(tableauLogic.showTableauModal);
   const changeSubModalAnim = useModalAnimation(tableauLogic.showChangeSubModal);
   const questionnaireModalAnim = useModalAnimation(tableauLogic.showQuestionnaireModal);
 
-  // Animation du modal de choix de service (animation center)
-  const [modalAnim, setModalAnim] = useState('in');
+  // Animation du modal centre (Grand/Petit)
+  const [workTypeModalAnim, setWorkTypeModalAnim] = useState('in');
 
   // Gestion des champs
   const handleChange = (e) => {
@@ -55,27 +71,95 @@ function Quote() {
   // Étape 1 : validation et passage au choix service
   const handleContinue = (e) => {
     e.preventDefault();
-    setShowModal(true);
-    setModalAnim('in');
+    setShowWorkTypeModal(true);
+    setWorkTypeModalAnim('in');
   };
 
-  // Sélection du service
+  const openWorkTypeModal = () => {
+    setShowWorkTypeModal(true);
+    setWorkTypeModalAnim('in');
+  };
+
+  const handleCloseWorkTypeModal = () => {
+    setWorkTypeModalAnim('out');
+    setTimeout(() => {
+      setShowWorkTypeModal(false);
+      setShowQuoteModeModal(false);
+      setShowServiceChoiceModal(false);
+      setShowRapidModal(false);
+      setFormData(prev => ({ ...prev, service: '' }));
+      setStep(1);
+    }, ANIMATION_DURATION);
+  };
+
+  const handleSelectWorkType = (type) => {
+    setWorkTypeModalAnim('out');
+    setTimeout(() => {
+      setShowWorkTypeModal(false);
+
+      if (type === 'petit') {
+        setServiceChoiceReturnTo('workType');
+        setShowServiceChoiceModal(true);
+      } else {
+        setShowQuoteModeModal(true);
+      }
+    }, ANIMATION_DURATION);
+  };
+
+  const handleCloseQuoteModeModal = () => {
+    quoteModeModalAnim.closeWithAnimation(() => {
+      setShowQuoteModeModal(false);
+      openWorkTypeModal();
+    });
+  };
+
+  const handleSelectQuoteMode = (mode) => {
+    // mode: 'personnalise' | 'rapide'
+    if (mode === 'personnalise') {
+      quoteModeModalAnim.closeWithAnimation(() => {
+        setShowQuoteModeModal(false);
+        setServiceChoiceReturnTo('quoteMode');
+        setFormData(prev => ({ ...prev, quoteMode: undefined }));
+        setShowServiceChoiceModal(true);
+      });
+      return;
+    }
+
+    // rapide
+    quoteModeModalAnim.closeWithAnimation(() => {
+      setShowQuoteModeModal(false);
+      setShowRapidModal(true);
+    });
+  };
+
+  // Sélection du service (personnalisé) — retirer quoteMode pour ne pas rester en "rapide"
   const handleServiceSelect = (key) => {
-    setFormData({ ...formData, service: key });
+    setFormData({ ...formData, service: key, quoteMode: undefined });
+  };
+
+  // Réinitialiser devis + tableau quand on ouvre le formulaire pour un autre service
+  const resetFormStateIfServiceChanged = (serviceKey) => {
+    if (lastFormServiceRef.current !== serviceKey) {
+      lastFormServiceRef.current = serviceKey;
+      setDevisItems([]);
+      setTableauData(null);
+    }
   };
 
   // Validation du service
   const handleValidateService = () => {
     if (formData.service) {
-      setModalAnim('out');
-      setTimeout(() => {
-        setShowModal(false);
-        if (formData.service === 'domotique' || formData.service === 'installation') {
+      const serviceKey = formData.service;
+      serviceChoiceModalAnim.closeWithAnimation(() => {
+        setShowServiceChoiceModal(false);
+        if (serviceKey === 'domotique' || serviceKey === 'installation') {
+          resetFormStateIfServiceChanged(serviceKey);
           tableauLogic.setShowTableauModal(true);
         } else {
+          resetFormStateIfServiceChanged(serviceKey);
           setShowServiceModal(true);
         }
-      }, ANIMATION_DURATION);
+      });
     }
   };
 
@@ -92,6 +176,10 @@ function Quote() {
 
   // Fonction pour calculer les items finaux du tableau avant de générer le devis
   const calculateFinalTableauItems = async (prestationsItems, tableauData) => {
+    // Pas de tableau électrique pour sécurité et portail
+    if (formData.service === 'securite' || formData.service === 'portail') {
+      return (prestationsItems || []).filter(item => item.type !== 'tableau');
+    }
     // Si "garder mon tableau", ne rien ajouter
     if (!tableauData || tableauData.choice === 'garder') {
       return prestationsItems;
@@ -100,11 +188,6 @@ function Quote() {
     // Séparer les prestations et les tableaux
     const prestationsOnly = prestationsItems.filter(item => item.type !== 'tableau');
     const existingTableaux = prestationsItems.filter(item => item.type === 'tableau');
-    
-    // Récupérer tous les questionnaires des tableaux déjà ajoutés (pour "changer mon tableau")
-    const questionnaires = existingTableaux
-      .map(item => item.tableauData?.questionnaire)
-      .filter(q => q !== null && q !== undefined);
 
     // Si "nouveau tableau", calculer uniquement à partir des prestations
     if (tableauData.choice === 'inexistant') {
@@ -117,13 +200,6 @@ function Quote() {
       
       // ID fixe pour "nouveau tableau" (même que dans useFormLogic)
       const tableauItemId = `tableau-inexistant-${formData.service}`;
-      
-      // Trouver le tableau existant pour "nouveau tableau" parmi les tableaux existants
-      const existingTableauIndex = existingTableaux.findIndex(item => 
-        item.id === tableauItemId ||
-        (item.tableauData?.choice === 'inexistant' &&
-         !item.tableauData?.questionnaire)
-      );
       
       const tableauItem = {
         id: tableauItemId,
@@ -149,16 +225,6 @@ function Quote() {
     if (tableauData.choice === 'changer' && tableauData.questionnaire) {
       if (tableauData.changeType === 'uniquement') {
         // "Changer uniquement" : utiliser la même logique que "commencer" mais sans prestations
-        // Vérifier si tableauData.questionnaire est déjà dans questionnaires pour éviter les doublons
-        const questionnaireDejaPresent = questionnaires.some(q => 
-          q && tableauData.questionnaire && 
-          JSON.stringify(q) === JSON.stringify(tableauData.questionnaire)
-        );
-        
-        const questionnairesUniques = questionnaireDejaPresent 
-          ? questionnaires 
-          : [...questionnaires, tableauData.questionnaire];
-        
         try {
           // Utiliser calculateTableau avec un tableau vide de prestations
           const response = await ApiService.calculateTableau([], {
@@ -197,16 +263,6 @@ function Quote() {
         }
       } else if (tableauData.changeType === 'commencer') {
         // "Changer + ajouter prestation" : fusionner questionnaires + prestations
-        // Vérifier si tableauData.questionnaire est déjà dans questionnaires pour éviter les doublons
-        const questionnaireDejaPresent = questionnaires.some(q => 
-          q && tableauData.questionnaire && 
-          JSON.stringify(q) === JSON.stringify(tableauData.questionnaire)
-        );
-        
-        const questionnairesUniques = questionnaireDejaPresent 
-          ? questionnaires 
-          : [...questionnaires, tableauData.questionnaire];
-        
         try {
           // Utiliser calculateTableau avec questionnaires et prestations
           const response = await ApiService.calculateTableau(prestationsOnly, {
@@ -218,25 +274,6 @@ function Quote() {
         
         // ID fixe pour "changer + commencer" (même que dans useFormLogic)
         const tableauItemId = `tableau-changer-commencer-${formData.service}`;
-        
-        // Trouver le tableau existant pour "changer + commencer" parmi les tableaux existants
-        const existingTableauIndex = existingTableaux.findIndex(item => 
-          item.id === tableauItemId ||
-          (item.tableauData?.choice === 'changer' &&
-           item.tableauData?.changeType === 'commencer')
-        );
-        
-        // Debug: vérifier les matériels avant de créer le tableauItem
-        console.log(`🔍 Quote.jsx - Matériels du tableau avant création item:`, {
-          materielsCount: result.materiels.length,
-          materiels: result.materiels.map(m => ({
-            code: m.code,
-            label: m.label,
-            quantity: m.quantity,
-            prix_ht: m.prix_ht
-          })),
-          disjoncteursDivisionnaires: result.materiels.filter(m => m.code === 'DISDIV')
-        });
         
         const tableauItem = {
           id: tableauItemId,
@@ -274,8 +311,42 @@ function Quote() {
   const handleCloseServiceModalDirect = () => {
     serviceModalAnim.closeWithAnimation(() => {
       setShowServiceModal(false);
-      setShowModal(false);
+      setShowWorkTypeModal(false);
+      setShowQuoteModeModal(false);
+      setShowServiceChoiceModal(false);
+      setShowRapidModal(false);
       setStep(1);
+    });
+  };
+
+  const handleCloseServiceChoiceModal = () => {
+    // Retour au bon écran (Petit -> Grand/Petit, Grand-personnalisé -> Personnalisé/Rapide)
+    serviceChoiceModalAnim.closeWithAnimation(() => {
+      setShowServiceChoiceModal(false);
+      setFormData(prev => ({ ...prev, service: '' }));
+
+      if (serviceChoiceReturnTo === 'quoteMode') {
+        setShowQuoteModeModal(true);
+      } else {
+        openWorkTypeModal();
+      }
+    });
+  };
+
+  const handleRapidBack = () => {
+    rapidModalAnim.closeWithAnimation(() => {
+      setShowRapidModal(false);
+      setShowQuoteModeModal(true);
+    });
+  };
+
+  const handleRapidGenerate = (items) => {
+    setDevisItems(items);
+    // pour cohérence / affichage "Type" côté PDF (optionnel)
+    setFormData(prev => ({ ...prev, service: 'installation', serviceType: 'Devis rapide', quoteMode: 'rapide' }));
+    rapidModalAnim.closeWithAnimation(() => {
+      setShowRapidModal(false);
+      setStep(2);
     });
   };
 
@@ -285,6 +356,7 @@ function Quote() {
       // Pour "garder" ou "inexistant", fermer le modal et ouvrir le formulaire de service
       tableauLogic.handleTableauChoice(choice);
       tableauModalAnim.closeWithAnimation(() => {
+        resetFormStateIfServiceChanged(formData.service);
         setTableauData({
           choice,
           questionnaire: null,
@@ -304,7 +376,10 @@ function Quote() {
     tableauModalAnim.closeWithAnimation(() => {
       tableauLogic.setShowTableauModal(false);
       tableauLogic.resetTableauLogic();
-      setShowModal(false);
+      setShowWorkTypeModal(false);
+      setShowQuoteModeModal(false);
+      setShowServiceChoiceModal(false);
+      setShowRapidModal(false);
       setStep(1);
     });
   };
@@ -315,7 +390,10 @@ function Quote() {
       tableauLogic.setShowChangeSubModal(false);
       tableauLogic.setShowTableauModal(false);
       tableauLogic.resetTableauLogic();
-      setShowModal(false);
+      setShowWorkTypeModal(false);
+      setShowQuoteModeModal(false);
+      setShowServiceChoiceModal(false);
+      setShowRapidModal(false);
       setStep(1);
     });
   };
@@ -332,7 +410,10 @@ function Quote() {
     questionnaireModalAnim.closeWithAnimation(() => {
       tableauLogic.setShowQuestionnaireModal(false);
       tableauLogic.resetTableauLogic();
-      setShowModal(false);
+      setShowWorkTypeModal(false);
+      setShowQuoteModeModal(false);
+      setShowServiceChoiceModal(false);
+      setShowRapidModal(false);
       setStep(1);
     });
   };
@@ -400,16 +481,6 @@ function Quote() {
   // Validation du questionnaire
   const handleQuestionnaireValidate = () => {
     const data = tableauLogic.getTableauData();
-    
-    // Debug: vérifier les données du questionnaire avant de les stocker
-    console.log(`🔍 Quote.jsx - handleQuestionnaireValidate:`, {
-      data,
-      questionnaire: data.questionnaire,
-      nombreDisjoncteurs: data.questionnaire?.nombreDisjoncteurs,
-      changeType: data.changeType,
-      choice: data.choice
-    });
-    
     setTableauData(data);
 
     // Gérer selon le type de changement
@@ -450,9 +521,10 @@ function Quote() {
     }
   };
 
-  // Rendu dynamique du formulaire selon le service
+  // Rendu dynamique du formulaire selon le service (key pour remonter le form à chaque changement de service)
   const renderServiceForm = () => {
     return <Form 
+      key={formData.service}
       serviceType={formData.service} 
       onClose={handleCloseServiceModal} 
       onCancel={handleCancelToStep1}
@@ -467,6 +539,19 @@ function Quote() {
           <h1 className="text-4xl font-bold text-gray-800 mb-4">Demander un Devis</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Remplissez ce formulaire pour recevoir un devis personnalisé pour votre projet
+          </p>
+          <p className="text-base text-gray-600 max-w-2xl mx-auto mt-3 flex flex-wrap items-center justify-center gap-2">
+            Pour vous aider à remplir notre formulaire, regardez le tuto sur notre{' '}
+            <a
+              href="https://www.tiktok.com/@qtb.electrotech"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-cyan-600 hover:text-cyan-800 font-medium transition-colors"
+              aria-label="TikTok QTB Electrotech"
+            >
+              <img src="/image/tiktok-logo.png" alt="" className="h-6 w-6 object-contain" />
+              TikTok
+            </a>
           </p>
         </div>
 
@@ -557,19 +642,85 @@ function Quote() {
           </div>
         )}
 
-        {/* Modal choix service */}
-        {showModal && (
+        {/* Modal centre : Grand/Petit travaux */}
+        {showWorkTypeModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative transition-transform duration-400 ${modalAnim === 'in' ? 'animate-slide-in-center' : 'animate-slide-out-left'}`}>
+            <div className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative transition-transform duration-400 ${workTypeModalAnim === 'in' ? 'animate-slide-in-center' : 'animate-slide-out-left'}`}>
               <button
                 className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl"
-                onClick={() => {
-                  setModalAnim('out');
-                  setTimeout(() => {
-                    setShowModal(false);
-                    setStep(1);
-                  }, ANIMATION_DURATION);
-                }}
+                onClick={handleCloseWorkTypeModal}
+                aria-label="Fermer"
+              >
+                &times;
+              </button>
+              <h2 className="text-2xl font-bold text-cyan-800 mb-6 text-center">Type de travaux</h2>
+              <div className="grid grid-cols-1 gap-4">
+                <button
+                  className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100"
+                  onClick={() => handleSelectWorkType('grand')}
+                >
+                  <span className="text-2xl">🏗️</span>
+                  <span>Grand travaux</span>
+                </button>
+                <button
+                  className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100"
+                  onClick={() => handleSelectWorkType('petit')}
+                >
+                  <span className="text-2xl">🛠️</span>
+                  <span>Petit travaux</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal slide droite : Personnalisé / Rapide (Grand travaux) */}
+        {quoteModeModalAnim.isRendered && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div
+              className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative transition-transform duration-400 modal-animation-ready ${
+                quoteModeModalAnim.animState === 'in' ? 'animate-slide-in-right' : quoteModeModalAnim.animState === 'out' ? 'animate-slide-out-left' : ''
+              }`}
+            >
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl"
+                onClick={handleCloseQuoteModeModal}
+                aria-label="Fermer"
+              >
+                &times;
+              </button>
+              <h2 className="text-2xl font-bold text-cyan-800 mb-6 text-center">Grand travaux</h2>
+              <div className="grid grid-cols-1 gap-4">
+                <button
+                  className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100"
+                  onClick={() => handleSelectQuoteMode('personnalise')}
+                >
+                  <span className="text-2xl">🧩</span>
+                  <span>Devis personnalisé</span>
+                </button>
+                <button
+                  className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100"
+                  onClick={() => handleSelectQuoteMode('rapide')}
+                >
+                  <span className="text-2xl">⚡</span>
+                  <span>Devis rapide</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal slide droite : choix des 4 services */}
+        {serviceChoiceModalAnim.isRendered && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div
+              className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative transition-transform duration-400 modal-animation-ready ${
+                serviceChoiceModalAnim.animState === 'in' ? 'animate-slide-in-right' : serviceChoiceModalAnim.animState === 'out' ? 'animate-slide-out-left' : ''
+              }`}
+            >
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl"
+                onClick={handleCloseServiceChoiceModal}
                 aria-label="Fermer"
               >
                 &times;
@@ -579,7 +730,11 @@ function Quote() {
                 {SERVICES.map((srv) => (
                   <button
                     key={srv.key}
-                    className={`w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 ${formData.service === srv.key ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100'}`}
+                    className={`w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 ${
+                      formData.service === srv.key
+                        ? 'bg-cyan-600 text-white border-cyan-600'
+                        : 'bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100'
+                    }`}
                     onClick={() => handleServiceSelect(srv.key)}
                   >
                     <span className="text-2xl">{srv.icon}</span>
@@ -600,6 +755,26 @@ function Quote() {
           </div>
         )}
 
+        {/* Modal slide droite : devis rapide */}
+        {rapidModalAnim.isRendered && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div
+              className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-lg relative transition-transform duration-400 modal-animation-ready ${
+                rapidModalAnim.animState === 'in' ? 'animate-slide-in-right' : rapidModalAnim.animState === 'out' ? 'animate-slide-out-left' : ''
+              }`}
+            >
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl z-10"
+                onClick={handleRapidBack}
+                aria-label="Fermer"
+              >
+                &times;
+              </button>
+              <QuoteRapid onGenerate={handleRapidGenerate} onBack={handleRapidBack} />
+            </div>
+          </div>
+        )}
+
         {/* Modal formulaire spécifique au service (slide-in depuis la droite) */}
         {serviceModalAnim.isRendered && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
@@ -608,13 +783,6 @@ function Quote() {
                 serviceModalAnim.animState === 'in' ? 'animate-slide-in-right' : serviceModalAnim.animState === 'out' ? 'animate-slide-out-left' : ''
               }`}
             >
-              <button
-                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl z-10"
-                onClick={handleCloseServiceModalDirect}
-                aria-label="Fermer"
-              >
-                &times;
-              </button>
               <button
                 className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl z-10"
                 onClick={handleCloseServiceModalDirect}
@@ -669,7 +837,10 @@ function Quote() {
         {step === 2 && (
           <ModalQuote 
             formData={formData} 
-            onBackToStep1={() => setStep(1)} 
+            onBackToStep1={() => {
+              setFormData(prev => ({ ...prev, quoteMode: undefined }));
+              setStep(1);
+            }} 
             devisItems={devisItems}
           />
         )}

@@ -22,10 +22,7 @@ export default function Services() {
               </div>
             </div>
             <div className="p-6">
-              <p className="text-gray-600 mb-4">Installation complète, mise aux normes et rénovation de votre installation électrique par des professionnels qualifiés.</p>
-              <a href="#devis" className="text-cyan-600 hover:text-cyan-800 font-medium flex items-center cursor-pointer">
-                En savoir plus <i className="fas fa-arrow-right ml-2"></i>
-              </a>
+              <p className="text-gray-600">Installation complète, mise aux normes et rénovation de votre installation électrique par des professionnels qualifiés.</p>
             </div>
           </div>
 
@@ -41,10 +38,7 @@ export default function Services() {
               </div>
             </div>
             <div className="p-6">
-              <p className="text-gray-600 mb-4">Solutions domotiques innovantes pour contrôler éclairage, chauffage, sécurité et autres équipements de votre maison.</p>
-              <a href="#devis" className="text-cyan-600 hover:text-cyan-800 font-medium flex items-center cursor-pointer">
-                En savoir plus <i className="fas fa-arrow-right ml-2"></i>
-              </a>
+              <p className="text-gray-600">Solutions domotiques innovantes pour contrôler éclairage, chauffage, sécurité et autres équipements de votre maison.</p>
             </div>
           </div>
 
@@ -61,10 +55,7 @@ export default function Services() {
               </div>
             </div>
             <div className="p-6">
-              <p className="text-gray-600 mb-4">Nous proposons l’installation, le diagnostic et le dépannage gratuits de systèmes de sécurité : alarmes, caméras, détecteurs et plus encore.</p>
-              <a href="#devis" className="text-cyan-600 hover:text-cyan-800 font-medium flex items-center cursor-pointer">
-                En savoir plus <i className="fas fa-arrow-right ml-2"></i>
-              </a>
+              <p className="text-gray-600">Nous proposons l’installation, le diagnostic et le dépannage gratuits de systèmes de sécurité : alarmes, caméras, détecteurs et plus encore.</p>
             </div>
           </div>
         </div>
