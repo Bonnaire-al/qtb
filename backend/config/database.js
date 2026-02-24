@@ -10,15 +10,23 @@ const dbPath = process.env.DATABASE_PATH
   ? process.env.DATABASE_PATH
   : (process.env.NODE_ENV === 'production' ? defaultProdPath : defaultDevPath);
 
-// Premier déploiement avec volume : si la base cible n'existe pas mais backend/data/database.db oui (ex. fourni par Git), la copier.
+// Premier déploiement avec volume : copier la base locale vers le volume si besoin.
+// - Cible absente → copie.
+// - Cible présente mais très petite (< 60 Ko) et source plus grosse → base vide, on recopie.
 const localDbPath = path.join(__dirname, '..', 'data', 'database.db');
-if (dbPath !== localDbPath && !fs.existsSync(dbPath) && fs.existsSync(localDbPath)) {
-  try {
-    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-    fs.copyFileSync(localDbPath, dbPath);
-    console.log('✅ Base locale copiée vers', dbPath);
-  } catch (e) {
-    console.warn('⚠️ Copie base vers volume ignorée:', e.message);
+const MIN_VALID_DB_SIZE = 60 * 1024; // 60 Ko
+
+if (dbPath !== localDbPath && fs.existsSync(localDbPath)) {
+  const needCopy = !fs.existsSync(dbPath) ||
+    (fs.statSync(dbPath).size < MIN_VALID_DB_SIZE && fs.statSync(localDbPath).size >= MIN_VALID_DB_SIZE);
+  if (needCopy) {
+    try {
+      fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+      fs.copyFileSync(localDbPath, dbPath);
+      console.log('✅ Base locale copiée vers', dbPath);
+    } catch (e) {
+      console.warn('⚠️ Copie base vers volume ignorée:', e.message);
+    }
   }
 }
 
