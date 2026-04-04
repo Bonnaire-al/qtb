@@ -42,22 +42,23 @@ const Navbar = () => {
       {/* Contenu du Navbar */}
       <div className="relative z-10">
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-900/10 to-cyan-800/10"></div>
-        <div className="relative flex items-center justify-between px-2 sm:px-4 py-3">
-          {/* Mobile menu button - visible uniquement sur mobile */}
-          <button
-            className="md:hidden text-white focus:outline-none cursor-pointer z-20 relative p-2 hover:bg-white/10 rounded-lg"
-            onClick={toggleMenu}
-            aria-label="Menu"
-          >
-            <div className="w-6 h-6 flex flex-col justify-center items-center">
-              <span className={`block w-5 h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? 'rotate-45 translate-y-1' : '-translate-y-1'}`}></span>
-              <span className={`block w-5 h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? 'opacity-0' : 'opacity-100'}`}></span>
-              <span className={`block w-5 h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? '-rotate-45 -translate-y-1' : 'translate-y-1'}`}></span>
-            </div>
-          </button>
-          
-          {/* Navigation Desktop/Tablette - visible sur tablette et plus */}
-          <nav className="hidden md:flex space-x-4 lg:space-x-6 xl:space-x-8 2xl:space-x-12">
+        <div className="relative flex items-center justify-between gap-2 px-2 sm:px-4 py-3 w-full">
+          <div className="flex items-center min-w-0 z-20">
+            {/* Mobile menu button */}
+            <button
+              className="md:hidden text-white focus:outline-none cursor-pointer relative p-2 hover:bg-white/10 rounded-lg shrink-0"
+              onClick={toggleMenu}
+              aria-label="Menu"
+            >
+              <div className="w-6 h-6 flex flex-col justify-center items-center">
+                <span className={`block w-5 h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? 'rotate-45 translate-y-1' : '-translate-y-1'}`}></span>
+                <span className={`block w-5 h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? 'opacity-0' : 'opacity-100'}`}></span>
+                <span className={`block w-5 h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? '-rotate-45 -translate-y-1' : 'translate-y-1'}`}></span>
+              </div>
+            </button>
+
+            {/* Navigation Desktop/Tablette */}
+            <nav className="hidden md:flex space-x-4 lg:space-x-6 xl:space-x-8 2xl:space-x-12">
             <Link
               to="/accueil"
               className="font-medium hover:text-cyan-200 transition-colors duration-300 group relative cursor-pointer text-xs md:text-xs lg:text-base xl:text-lg 2xl:text-xl hover:scale-105"
@@ -87,13 +88,14 @@ const Navbar = () => {
               Devis
               <span className="absolute inset-x-0 bottom-0 h-0.5 bg-cyan-200 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></span>
             </Link>
-          </nav>
-          
-          {/* Logo - centré parfaitement */}
-          <div className="absolute left-1/2 transform -translate-x-1/2">
-            <Link to="/accueil" onClick={closeMenu}>
+            </nav>
+          </div>
+
+          {/* Logo - centré */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 z-10 pointer-events-none max-w-[min(100%,calc(100%-5rem))] md:max-w-[min(100%,calc(100%-12rem))]">
+            <Link to="/accueil" onClick={closeMenu} className="pointer-events-auto">
               <div 
-                className="text-xl sm:text-2xl md:text-2xl lg:text-3xl xl:text-4xl font-bold flex items-center"
+                className="text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold flex items-center justify-center text-center truncate"
                 style={{
                   background: 'linear-gradient(45deg, #06b6d4, #ffffff, #06b6d4)',
                   backgroundSize: '400% 400%',
@@ -108,12 +110,13 @@ const Navbar = () => {
               </div>
             </Link>
           </div>
-          
-          {/* Urgence téléphone - visible sur tablette et plus */}
-          <div className="hidden md:flex items-center">
-            <div className="group">
+
+          {/* Desktop : bouton jaune — sur mobile le lien est uniquement dans le menu burger */}
+          <div className="flex items-center justify-end shrink-0 z-20">
+            <div className="md:hidden w-10 shrink-0" aria-hidden />
+            <div className="hidden md:flex items-center group">
               <a
-                href="tel:+33123456789"
+                href="tel:+33777117178"
                 className="flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-3 lg:px-4 xl:px-6 py-2 lg:py-3 rounded-full transition-all duration-300 cursor-pointer font-semibold text-sm lg:text-base xl:text-lg"
               >
                 <i className="fas fa-bolt mr-1 lg:mr-2 xl:mr-3 group-hover:animate-pulse"></i>
@@ -185,12 +188,14 @@ const Navbar = () => {
               Devis
             </Link>
             <a
-              href="tel:+33123456789"
-              className="flex items-center px-3 py-3 hover:bg-cyan-700/50 rounded-lg cursor-pointer transition-colors duration-200 text-white font-medium"
+              href="tel:+33777117178"
+              className="flex items-center justify-center gap-2 px-2.5 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold text-xs shadow-sm"
               onClick={closeMenu}
+              aria-label="Dépannage 07 77 11 71 78"
             >
-              <i className="fas fa-bolt text-yellow-300 mr-3"></i>
-             0777117178
+              <i className="fas fa-bolt text-[0.7rem] shrink-0"></i>
+              <span>Dépannage</span>
+              <span className="font-mono font-bold tabular-nums">07 77 11 71 78</span>
             </a>
           </div>
         </div>

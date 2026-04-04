@@ -29,8 +29,9 @@ export default function Contact() {
                   </div>
                   <div>
                     <h4 className="font-bold text-cyan-800 mb-1">Téléphone</h4>
-                    <p className="text-gray-700">07 77 11 71 78</p>
-                    <p className="text-gray-700">07 77 11 71 78 (Urgence)</p>
+                    <a href="tel:+33777117178" className="text-gray-700 hover:text-cyan-700 underline-offset-2 hover:underline block">
+                      07 77 11 71 78 — Dépannage &amp; urgence 24/7
+                    </a>
                   </div>
                 </div>
               </div>
@@ -41,7 +42,12 @@ export default function Contact() {
                   </div>
                   <div>
                     <h4 className="font-bold text-cyan-800 mb-1">Email</h4>
-                    <p className="text-gray-700">bonnaire94@proton.me</p>
+                    <a
+                      href="mailto:contact@qtb-electrotech.com"
+                      className="text-gray-700 hover:text-cyan-700 break-all underline-offset-2 hover:underline"
+                    >
+                      contact@qtb-electrotech.com
+                    </a>
                   </div>
                 </div>
                 <div className="flex items-start">

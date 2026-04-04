@@ -221,6 +221,28 @@ class ApiService {
   
   // ==================== TABLEAU ====================
   
+  static async getTableauConfig() {
+    const response = await fetch(`${API_BASE_URL}/tableau/config`);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Erreur lors de la récupération de la config tableau');
+    }
+    return response.json();
+  }
+
+  static async updateTableauConfig(payload) {
+    const response = await fetch(`${API_BASE_URL}/tableau/config`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Erreur lors de la mise à jour de la config tableau');
+    }
+    return response.json();
+  }
+
   static async calculateTableau(devisItems, tableauData) {
     const response = await fetch(`${API_BASE_URL}/tableau/calculate`, {
       method: 'POST',

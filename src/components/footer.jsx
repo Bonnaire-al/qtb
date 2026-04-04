@@ -66,14 +66,20 @@ const Footer = () => {
           <div>
             <h3 className="text-lg font-semibold mb-4">Contact</h3>
             <div className="space-y-2">
-              <p className="text-cyan-200 flex items-center">
+              <a
+                href="tel:+33777117178"
+                className="text-cyan-200 flex items-center hover:text-white transition-colors"
+              >
                 <i className="fas fa-phone mr-2"></i>
                 07 77 11 71 78
-              </p>
-              <p className="text-cyan-200 flex items-center">
-                <i className="fas fa-envelope mr-2"></i>
-                contact@qtbelectro.fr
-              </p>
+              </a>
+              <a
+                href="mailto:contact@qtb-electrotech.com"
+                className="text-cyan-200 flex items-center hover:text-white transition-colors break-all"
+              >
+                <i className="fas fa-envelope mr-2 shrink-0"></i>
+                contact@qtb-electrotech.com
+              </a>
               <p className="text-cyan-200 flex items-center">
                 <i className="fas fa-map-marker-alt mr-2"></i>
                 Nevers, France
@@ -89,7 +95,7 @@ const Footer = () => {
                 Service d'urgence disponible
               </p>
               <a
-                href="tel:+33123456789"
+                href="tel:+33777117178"
                 className="flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-4 py-2 rounded-full transition-all duration-300 font-semibold"
               >
                 <i className="fas fa-bolt mr-2"></i>

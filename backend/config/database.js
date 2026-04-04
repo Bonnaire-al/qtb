@@ -35,6 +35,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
     console.error('❌ Erreur de connexion à la base de données:', err.message);
   } else {
     console.log('✅ Connecté à la base de données SQLite');
+    // Vérification visible dans les logs : la base est bien sur le volume ?
+    try {
+      const exists = fs.existsSync(dbPath);
+      const size = exists ? fs.statSync(dbPath).size : 0;
+      const sizeKo = (size / 1024).toFixed(1);
+      console.log(`📂 Base utilisée: ${dbPath} ${exists ? `(présente, ${sizeKo} Ko)` : '(fichier absent)'}`);
+    } catch {
+      console.log(`📂 Base utilisée: ${dbPath}`);
+    }
   }
 });
 

@@ -375,13 +375,15 @@ function calculateRangees(nombrePlaces) {
 }
 
 /**
- * Calculer la main d'œuvre
- * 260€ par rangée pour tous les cas
+ * Calculer la main d'œuvre (tarif par rangée configurable, défaut 260 € HT)
  * @param {number} nombreRangees - Nombre de rangées
+ * @param {number} [prixParRangee=260] - € HT par rangée
  * @returns {number} Prix de la main d'œuvre
  */
-function calculateMainOeuvre(nombreRangees) {
-  return 260 * nombreRangees;
+function calculateMainOeuvre(nombreRangees, prixParRangee = 260) {
+  const p = Number(prixParRangee);
+  const rate = Number.isFinite(p) && p > 0 ? p : 260;
+  return rate * nombreRangees;
 }
 
 /**
@@ -560,9 +562,10 @@ function groupMaterielsByCode(materiels) {
  * Calculer les matériels du tableau selon le questionnaire (pour "Changer mon tableau uniquement")
  * @param {Object} questionnaire - Données du questionnaire
  * @param {Array} devisItems - Les items du devis pour compter les interrupteurs (optionnel)
+ * @param {number} [prixParRangee=260] - € HT main d'œuvre par rangée
  * @returns {Object} { materiels: Array, mainOeuvre: number, rangees: number }
  */
-function calculateTableauFromQuestionnaire(questionnaire, devisItems = []) {
+function calculateTableauFromQuestionnaire(questionnaire, devisItems = [], prixParRangee = 260) {
   const materiels = [];
   
   if (!questionnaire) return { materiels: [], mainOeuvre: 0, rangees: 0 };
@@ -712,8 +715,7 @@ function calculateTableauFromQuestionnaire(questionnaire, devisItems = []) {
     type_produit: 'fourniture'
   });
   
-  // Calculer la main d'œuvre (260€ par rangée)
-  const mainOeuvre = calculateMainOeuvre(nombreRangees);
+  const mainOeuvre = calculateMainOeuvre(nombreRangees, prixParRangee);
   
   // Regrouper les matériaux par code pour éviter les doublons
   const materielsGroupes = groupMaterielsByCode(materiels);
@@ -728,12 +730,13 @@ function calculateTableauFromQuestionnaire(questionnaire, devisItems = []) {
 /**
  * Calculer les matériels du tableau pour "Nouveau tableau" ou "Changer + ajouter prestation"
  * Combine questionnaire(s) + prestations
- * Même logique et même prix (260€/rangée) pour les deux cas
+ * Même logique ; tarif par rangée configurable (défaut 260 € HT)
  * @param {Array} questionnaires - Tableau des questionnaires (vide pour "Nouveau tableau")
  * @param {Array} devisItems - Les prestations ajoutées
+ * @param {number} [prixParRangee=260] - € HT main d'œuvre par rangée
  * @returns {Object} { materiels: Array, mainOeuvre: number, tableaux: Array }
  */
-function calculateTableauFromQuestionnaireAndPrestations(questionnaires = [], devisItems = []) {
+function calculateTableauFromQuestionnaireAndPrestations(questionnaires = [], devisItems = [], prixParRangee = 260) {
   const materiels = [];
   let totalMainOeuvre = 0;
   
@@ -987,9 +990,7 @@ function calculateTableauFromQuestionnaireAndPrestations(questionnaires = [], de
       type_produit: 'fourniture'
     });
     
-    // Calculer la main d'œuvre pour ce tableau (260€ par rangée)
-    // S'assurer qu'on ne compte pas plusieurs fois le même tableau
-    totalMainOeuvre += calculateMainOeuvre(nombreRangees);
+    totalMainOeuvre += calculateMainOeuvre(nombreRangees, prixParRangee);
   });
   
   // Regrouper les matériaux par code pour éviter les doublons
@@ -1006,9 +1007,16 @@ function calculateTableauFromQuestionnaireAndPrestations(questionnaires = [], de
  * Calculer les matériels du tableau électrique (ancienne fonction, conservée pour compatibilité)
  * @param {Array} devisItems - Les items du devis (prestations)
  * @param {Object} tableauData - Données du tableau (choice, questionnaire)
+ * @param {Object} [options]
+ * @param {number} [options.mainOeuvreParRangee=260] - € HT par rangée (config admin)
  * @returns {Object} { materiels: Array, mainOeuvre: number, rangees: number }
  */
-function calculateTableauMateriels(devisItems, tableauData) {
+function calculateTableauMateriels(devisItems, tableauData, options = {}) {
+  const prixParRangee =
+    options.mainOeuvreParRangee != null && Number(options.mainOeuvreParRangee) > 0
+      ? Number(options.mainOeuvreParRangee)
+      : 260;
+
   // Si "garder mon tableau", ne rien calculer
   if (!tableauData || tableauData.choice === 'garder') {
     return { materiels: [], mainOeuvre: 0, rangees: 0 };
@@ -1016,7 +1024,7 @@ function calculateTableauMateriels(devisItems, tableauData) {
 
   // Pour "nouveau tableau", utiliser les prestations uniquement
   if (tableauData.choice === 'inexistant') {
-    const result = calculateTableauFromQuestionnaireAndPrestations([], devisItems);
+    const result = calculateTableauFromQuestionnaireAndPrestations([], devisItems, prixParRangee);
     // Calculer le total des rangées à partir des tableaux
     const totalRangees = result.tableaux ? 
       result.tableaux.reduce((sum, t) => sum + t.rangees, 0) : 0;
@@ -1026,13 +1034,12 @@ function calculateTableauMateriels(devisItems, tableauData) {
   // Pour "changer mon tableau", utiliser le questionnaire
   if (tableauData.choice === 'changer' && tableauData.questionnaire) {
     if (tableauData.changeType === 'uniquement') {
-      // "Changer uniquement" : seulement le questionnaire (sans prestations)
-      return calculateTableauFromQuestionnaire(tableauData.questionnaire, []);
+      return calculateTableauFromQuestionnaire(tableauData.questionnaire, [], prixParRangee);
     } else if (tableauData.changeType === 'commencer') {
-      // "Changer + ajouter prestation" : questionnaire + prestations (même logique que "nouveau tableau" mais avec questionnaire)
       const result = calculateTableauFromQuestionnaireAndPrestations(
-        [tableauData.questionnaire], 
-        devisItems
+        [tableauData.questionnaire],
+        devisItems,
+        prixParRangee
       );
       // Calculer le total des rangées à partir des tableaux
       const totalRangees = result.tableaux ? 

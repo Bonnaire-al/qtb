@@ -24,11 +24,13 @@ const avisRoutes = require('./routes/avis');
 const createAvisTable = require('./migrations/create-avis-table');
 const addGoogleAccountToAvis = require('./migrations/add-google-account-to-avis');
 const createRapidDevisConfig = require('./migrations/20260130_create-rapid-devis-config');
+const createTableauConfig = require('./migrations/create-tableau-config');
 
 // Migrations au démarrage
 createAvisTable()
   .then(() => addGoogleAccountToAvis())
   .then(() => createRapidDevisConfig())
+  .then(() => createTableauConfig())
   .catch((err) => console.warn('Migrations démarrage:', err.message));
 
 // Route test

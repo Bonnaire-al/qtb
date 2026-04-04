@@ -1,5 +1,6 @@
 const RapidConfigModel = require('../models/RapidConfig-model');
 const PrestationModel = require('../models/P-model');
+const TableauConfigModel = require('../models/TableauConfig-model');
 const TableauCalcul = require('../utils/tableauCalcul');
 
 class RapidController {
@@ -190,9 +191,11 @@ class RapidController {
         });
       }
 
-      // Tableau électrique : obligatoire, "inexistant"
       const tableauData = { choice: 'inexistant', questionnaire: null, changeType: 'commencer' };
-      const tableauResult = TableauCalcul.calculateTableauMateriels(devisItems, tableauData);
+      const mainOeuvreParRangee = await TableauConfigModel.getMainOeuvreParRangee();
+      const tableauResult = TableauCalcul.calculateTableauMateriels(devisItems, tableauData, {
+        mainOeuvreParRangee
+      });
 
       const tableauItem = {
         id: `tableau-inexistant-rapid-${nowId()}`,

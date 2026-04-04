@@ -278,8 +278,8 @@ const TableauChangeModal = ({
             <div className="bg-gray-100 border-2 border-black rounded-lg p-2 w-full sm:w-auto">
               <p className="text-xs text-gray-700">
                 Pour plus d'aide appeler le{' '}
-                <a href="tel:0777117178" className="text-blue-900 font-semibold hover:underline">
-                  07.77.11.71.78
+                <a href="tel:+33777117178" className="text-blue-900 font-semibold hover:underline">
+                  07 77 11 71 78
                 </a>
               </p>
             </div>

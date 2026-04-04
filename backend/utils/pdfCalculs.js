@@ -141,12 +141,20 @@ const createMainOeuvreRows = (devisItems, isCompany = false) => {
         const totalHT = item.mainOeuvre || 0;
         const tva = totalHT * tvaRate;
         const totalTTC = totalHT + tva;
-        
-        // Calculer le nombre de rangées (mainOeuvre / 260)
-        const nombreRangees = totalHT > 0 ? Math.round(totalHT / 260) : 0;
-        const designation = nombreRangees > 0 
-          ? `Main d'œuvre tableau électrique (${nombreRangees} rangée${nombreRangees > 1 ? 's' : ''} × 260€)`
-          : 'Main d\'œuvre tableau électrique';
+
+        const rangeesConnues = item.rangees != null && Number(item.rangees) > 0 ? Number(item.rangees) : 0;
+        const nombreRangees =
+          rangeesConnues > 0
+            ? rangeesConnues
+            : totalHT > 0
+              ? Math.max(1, Math.round(totalHT / 260))
+              : 0;
+        const prixParRangeeAffiche =
+          nombreRangees > 0 ? Math.round((totalHT / nombreRangees) * 100) / 100 : 260;
+        const designation =
+          nombreRangees > 0
+            ? `Main d'œuvre tableau électrique (${nombreRangees} rangée${nombreRangees > 1 ? 's' : ''} × ${prixParRangeeAffiche}€)`
+            : "Main d'œuvre tableau électrique";
         
         mainOeuvreRows.push([
           item.room || 'Tableau électrique',

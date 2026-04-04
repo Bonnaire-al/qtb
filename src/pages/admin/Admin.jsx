@@ -341,6 +341,19 @@ const Admin = () => {
               Devis rapide config
             </button>
             <button
+              onClick={() => setActiveTab('tableauElectrique')}
+              className={`${
+                activeTab === 'tableauElectrique'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+              </svg>
+              Tableau électrique
+            </button>
+            <button
               onClick={() => setActiveTab('avis')}
               className={`${
                 activeTab === 'avis'
@@ -363,9 +376,95 @@ const Admin = () => {
           {activeTab === 'config' && <ConfigManager />}
           {activeTab === 'devis' && <DevisManager quotes={savedQuotes} setQuotes={setSavedQuotes} />}
           {activeTab === 'rapid' && <RapidDevisConfig onUnauthorized={() => { ApiService.logoutAdmin(); setIsAuthenticated(false); }} />}
+          {activeTab === 'tableauElectrique' && (
+            <TableauElectriqueConfig
+              onUnauthorized={() => {
+                ApiService.logoutAdmin();
+                setIsAuthenticated(false);
+              }}
+            />
+          )}
           {activeTab === 'avis' && <AvisManager />}
         </div>
       </div>
+    </div>
+  );
+};
+
+// Tarif main d'œuvre par rangée (tableau électrique)
+const TableauElectriqueConfig = ({ onUnauthorized }) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [mainOeuvreParRangee, setMainOeuvreParRangee] = useState('260');
+  const [updatedAt, setUpdatedAt] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await ApiService.getTableauConfig();
+      setMainOeuvreParRangee(String(data.main_oeuvre_par_rangee ?? 260));
+      setUpdatedAt(data.updated_at || null);
+    } catch (e) {
+      if (e?.message?.toLowerCase().includes('autorisé') && typeof onUnauthorized === 'function') {
+        onUnauthorized();
+      } else {
+        setError(e?.message || 'Erreur chargement config tableau');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [onUnauthorized]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const save = async () => {
+    try {
+      await ApiService.updateTableauConfig({
+        main_oeuvre_par_rangee: parseFloat(mainOeuvreParRangee, 10)
+      });
+      await load();
+      alert('Tarif enregistré. Les nouveaux devis utiliseront ce montant.');
+    } catch (e) {
+      alert(e?.message || 'Erreur sauvegarde');
+    }
+  };
+
+  if (loading) return <div className="text-center py-8">Chargement...</div>;
+  if (error) return <div className="text-center py-8 text-red-600">Erreur : {error}</div>;
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6 space-y-6 max-w-lg">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Tableau électrique — Main d&apos;œuvre</h2>
+        <p className="text-sm text-gray-600">
+          Montant HT facturé par <strong>rangée</strong> de tableau (calcul automatique des devis : nouveau tableau,
+          changement de tableau, devis rapide).
+        </p>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">€ HT par rangée</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0.01"
+          value={mainOeuvreParRangee}
+          onChange={(e) => setMainOeuvreParRangee(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+        />
+      </div>
+      {updatedAt && (
+        <p className="text-xs text-gray-500">Dernière mise à jour : {updatedAt}</p>
+      )}
+      <button
+        type="button"
+        onClick={save}
+        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+      >
+        Enregistrer
+      </button>
     </div>
   );
 };
