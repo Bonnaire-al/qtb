@@ -3,14 +3,16 @@ const TableauConfigModel = require('../models/TableauConfig-model');
 
 class TableauController {
   /**
-   * GET /api/tableau/config — Tarif main d'œuvre par rangée (public)
+   * GET /api/tableau/config — Tarifs main d'œuvre par rangée (public)
    */
   static async getConfig(req, res) {
     try {
       const row = await TableauConfigModel.getConfig();
-      const main_oeuvre_par_rangee = await TableauConfigModel.getMainOeuvreParRangee();
+      const rates = await TableauConfigModel.getMainOeuvreRates();
       res.json({
-        main_oeuvre_par_rangee,
+        main_oeuvre_pose_par_rangee: rates.pose,
+        main_oeuvre_changement_par_rangee: rates.changement,
+        main_oeuvre_par_rangee: rates.pose,
         updated_at: row.updated_at || null
       });
     } catch (error) {
@@ -24,12 +26,23 @@ class TableauController {
    */
   static async updateConfig(req, res) {
     try {
-      const { main_oeuvre_par_rangee } = req.body || {};
-      await TableauConfigModel.updateConfig({ main_oeuvre_par_rangee });
+      const {
+        main_oeuvre_pose_par_rangee,
+        main_oeuvre_changement_par_rangee,
+        main_oeuvre_par_rangee
+      } = req.body || {};
+      await TableauConfigModel.updateConfig({
+        main_oeuvre_pose_par_rangee,
+        main_oeuvre_changement_par_rangee,
+        main_oeuvre_par_rangee
+      });
       const row = await TableauConfigModel.getConfig();
+      const rates = await TableauConfigModel.getMainOeuvreRates();
       res.json({
         success: true,
-        main_oeuvre_par_rangee: await TableauConfigModel.getMainOeuvreParRangee(),
+        main_oeuvre_pose_par_rangee: rates.pose,
+        main_oeuvre_changement_par_rangee: rates.changement,
+        main_oeuvre_par_rangee: rates.pose,
         updated_at: row.updated_at
       });
     } catch (error) {
@@ -59,9 +72,11 @@ class TableauController {
         });
       }
 
-      const mainOeuvreParRangee = await TableauConfigModel.getMainOeuvreParRangee();
-      const result = TableauCalcul.calculateTableauMateriels(devisItems, tableauData, {
-        mainOeuvreParRangee
+      const rates = await TableauConfigModel.getMainOeuvreRates();
+      const normalizedData = TableauCalcul.normalizeTableauData(tableauData) || tableauData;
+      const result = TableauCalcul.calculateTableauMateriels(devisItems, normalizedData, {
+        mainOeuvrePoseParRangee: rates.pose,
+        mainOeuvreChangementParRangee: rates.changement
       });
 
       res.json({

@@ -81,7 +81,8 @@ class RapidController {
     try {
       const {
         installationType,
-        pieceGammes = {}, // { chambre:'premium', ... } inclut cuisine
+        pieceGammes = {},
+        pieceEntries = [],
         securitySelections = [], // [{label,quantity}]
         portailSelections = [],
         voletSelections = []
@@ -106,7 +107,7 @@ class RapidController {
       const devisItems = [];
       const nowId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-      const buildPackItem = (roomValue, gamme, packType) => {
+      const buildPackItem = (roomValue, gamme, packType, roomLabelOverride) => {
         const key = `${packType}:${gamme}`;
         const pack = byTypeGamme.get(key);
         if (!pack || pack.enabled !== 1) {
@@ -116,7 +117,7 @@ class RapidController {
           throw new Error(`Pack vide: ${packType} ${gamme} (configurez-le dans l'admin)`);
         }
 
-        const roomLabel = pieceLabelMap.get(roomValue) || roomValue;
+        const roomLabel = roomLabelOverride || pieceLabelMap.get(roomValue) || roomValue;
         const services = pack.items.map(it => ({
           label: it.service_label || it.prestation_code,
           code: it.prestation_code || null,
@@ -135,12 +136,29 @@ class RapidController {
         };
       };
 
-      // Packs par pièce
-      Object.entries(pieceGammes || {}).forEach(([roomValue, gamme]) => {
-        if (!gamme) return;
+      const normalizePieceEntries = () => {
+        if (Array.isArray(pieceEntries) && pieceEntries.length > 0) {
+          return pieceEntries
+            .map((e) => ({
+              roomValue: e.roomValue,
+              gamme: e.gamme,
+              label: e.label || pieceLabelMap.get(e.roomValue) || e.roomValue
+            }))
+            .filter((e) => e.roomValue && e.gamme);
+        }
+        return Object.entries(pieceGammes || {})
+          .map(([roomValue, gamme]) => ({
+            roomValue,
+            gamme,
+            label: pieceLabelMap.get(roomValue) || roomValue
+          }))
+          .filter((e) => e.gamme);
+      };
+
+      normalizePieceEntries().forEach(({ roomValue, gamme, label }) => {
         const isCuisine = roomValue === 'cuisine';
         const packType = isCuisine ? 'cuisine' : 'piece';
-        devisItems.push(buildPackItem(roomValue, gamme, packType));
+        devisItems.push(buildPackItem(roomValue, gamme, packType, label));
       });
 
       // Sécurité / Portail / Volet : prestations existantes (non-pack)
@@ -191,10 +209,11 @@ class RapidController {
         });
       }
 
-      const tableauData = { choice: 'inexistant', questionnaire: null, changeType: 'commencer' };
-      const mainOeuvreParRangee = await TableauConfigModel.getMainOeuvreParRangee();
+      const tableauData = { choice: 'inexistant', questionnaire: null, changeType: null };
+      const rates = await TableauConfigModel.getMainOeuvreRates();
       const tableauResult = TableauCalcul.calculateTableauMateriels(devisItems, tableauData, {
-        mainOeuvreParRangee
+        mainOeuvrePoseParRangee: rates.pose,
+        mainOeuvreChangementParRangee: rates.changement
       });
 
       const tableauItem = {
@@ -206,6 +225,8 @@ class RapidController {
         services: tableauResult.materiels || [],
         mainOeuvre: tableauResult.mainOeuvre || 0,
         rangees: tableauResult.rangees || 0,
+        mainOeuvreType: tableauResult.mainOeuvreType || 'pose',
+        mainOeuvreParRangee: tableauResult.mainOeuvreParRangee || rates.pose,
         completed: false,
         rapid: { group: 'tableau' }
       };

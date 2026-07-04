@@ -56,6 +56,43 @@
   animation: slideInCenter 0.4s cubic-bezier(0.4,0,0.2,1) both;
 }
 
+/* Transitions fluides entre étapes du wizard page */
+@keyframes wizardStepIn {
+  from { transform: translateX(48px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes wizardStepOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(-48px); opacity: 0; }
+}
+
+@keyframes wizardStepInBack {
+  from { transform: translateX(-48px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes wizardStepOutBack {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(48px); opacity: 0; }
+}
+
+.animate-wizard-step-in {
+  animation: wizardStepIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.animate-wizard-step-out {
+  animation: wizardStepOut 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.animate-wizard-step-in-back {
+  animation: wizardStepInBack 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.animate-wizard-step-out-back {
+  animation: wizardStepOutBack 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
 /* Reset de base */
 html, body {
   margin: 0 !important;
@@ -65,6 +102,89 @@ html, body {
 
 * {
   box-sizing: border-box;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
+}
+
+.text-gradient-qtb {
+  background: linear-gradient(45deg, #06b6d4, #ffffff, #06b6d4);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShift 10s ease-in-out infinite;
+}
+
+@keyframes heroLogoIn {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+    filter: brightness(2) drop-shadow(0 0 0 transparent);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1) drop-shadow(0 0 12px rgba(6, 182, 212, 0.8));
+  }
+}
+
+@keyframes heroSlideFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-48px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes electricPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(6, 182, 212, 0.5), 0 0 20px rgba(6, 182, 212, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(6, 182, 212, 0.9), 0 0 40px rgba(34, 211, 238, 0.5), 0 0 60px rgba(6, 182, 212, 0.2);
+  }
+}
+
+@keyframes electricSpark {
+  0%, 100% { opacity: 0.3; transform: scale(1) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(6deg); }
+}
+
+.hero-logo-enter {
+  animation: heroLogoIn 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.hero-text-enter {
+  animation: heroSlideFromLeft 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.hero-electric-glow {
+  animation: electricPulse 2s ease-in-out infinite;
+}
+
+.hero-spark {
+  animation: electricSpark 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-gradient-qtb,
+  .hero-logo-enter,
+  .hero-text-enter,
+  .hero-electric-glow,
+  .hero-spark {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* Styles d'impression pour le devis */

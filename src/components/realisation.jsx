@@ -74,8 +74,8 @@ export default function Realisation() {
             <div className="bg-white rounded-lg overflow-hidden shadow-lg h-full">
               <div className="relative">
                 <img
-                  src="/image/tableau tri.jpg"
-                  alt="Installation photovoltaïque"
+                  src="/image/plafonier-led.webp"
+                  alt="Installation plafonnier LED"
                   className="w-full h-64 object-cover"
                 />
                 <div className="absolute top-4 right-4 bg-cyan-600 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
@@ -84,9 +84,9 @@ export default function Realisation() {
                 </div>
               </div>
               <div className="p-6">
-                <h3 className="text-xl font-bold text-cyan-800 mb-2">Tableau triphasé</h3>
+                <h3 className="text-xl font-bold text-cyan-800 mb-2">Plafonnier LED</h3>
                 <p className="text-gray-600">
-                Installation et remplacement d'un tableau triphasé, conçu pour garantir une distribution électrique sûre et efficace.
+                  Pose d&apos;un plafonnier LED design : éclairage homogène, faible consommation et rendu lumineux moderne pour sublimer votre pièce.
                 </p>
               </div>
             </div>

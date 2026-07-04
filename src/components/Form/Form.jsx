@@ -1,56 +1,59 @@
 import React from 'react';
 import { useFormLogic } from './useFormLogic';
-import ServiceCheckboxList from './ServiceCheckboxList';
+import { WizardProgress, StepZoneRoom, StepInstallation, StepPrestations } from './FormWizardSteps';
 import DevisItemList from './DevisItemList';
+import { ZONE_EXTERIOR } from './formWizardUtils';
 
-export default function Form({ serviceType, onClose, onCancel, tableauData = null }) {
+export default function Form({
+  serviceType,
+  onClose,
+  onCancel,
+  tableauData = null,
+  tableauServiceKey = null,
+  embedded = false,
+  onPrevPhase
+}) {
   const {
-    // États
+    wizardStep,
+    setWizardStep,
+    wizardZone,
     selectedRoom,
     selectedServices,
+    serviceQuantities,
+    serviceInterrupteurs,
     selectedInstallationType,
     selectedSecurityType,
-    showDevisModal,
     devisItems,
     isLoadingPrices,
     isLoadingServices,
     showSuccessMessage,
-    
-    // Configuration
+    successMessage,
     config,
-    currentRooms,
-    currentSpecificServices,
-    hasRooms,
-    hasSpecificServices,
-    getServicesForRoom,
-    
-    // Handlers regroupés
+    interiorRooms,
+    exteriorRooms,
+    groupedServicesStep3,
+    canGoStep2,
+    canAddToDevis,
+    editingItemId,
     handlers,
-    
-    // Fonctions de gestion des devis
     addToDevis,
+    startEditDevisItem,
     removeDevisItem,
-    updateQuantity,
-    generateDevis,
-    setShowDevisModal,
-    reloadData
-  } = useFormLogic(serviceType, tableauData);
+    copyTargetRooms,
+    copyDevisItemToRoom,
+    generateDevis
+  } = useFormLogic(serviceType, tableauData, tableauServiceKey);
 
-  const onSubmit = (e) => {
-    handlers.submit(e);
-    onClose();
+  const canGoStep3 = () => {
+    if (wizardZone === ZONE_EXTERIOR && selectedSecurityType === 'wifi') return true;
+    return Boolean(selectedInstallationType);
   };
 
-  const onGenerateDevisClick = () => {
-    generateDevis(onClose);
-  };
-
-  // Afficher un loader pendant le chargement
   if (isLoadingPrices || isLoadingServices) {
     return (
-      <div className="max-h-[80vh] overflow-y-auto max-w-md mx-auto px-8">
+      <div className="max-h-[85vh] overflow-y-auto max-w-5xl mx-auto px-4 py-8">
         <div className="flex flex-col items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mb-4" />
           <p className="text-gray-600">Chargement du formulaire...</p>
         </div>
       </div>
@@ -58,151 +61,123 @@ export default function Form({ serviceType, onClose, onCancel, tableauData = nul
   }
 
   return (
-    <>
-      <div className="max-h-[80vh] overflow-y-auto max-w-md mx-auto px-8">
-        <form onSubmit={onSubmit} className="space-y-4">
-          {/* Titre du projet avec bouton refresh */}
-          <div className="text-center mb-4 relative">
-            <h2 className="text-xl font-bold text-cyan-800">{config.title}</h2>
-            <button
-              type="button"
-              onClick={reloadData}
-              className="absolute right-0 top-0 text-gray-400 hover:text-cyan-600 transition-colors"
-              title="Rafraîchir les données"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-          </div>
+    <div className={embedded ? 'w-full' : 'max-h-[85vh] overflow-y-auto max-w-5xl mx-auto px-4 py-4'}>
+      {!embedded && (
+        <div className="text-center mb-4">
+          <h2 className="text-xl font-bold text-cyan-800">{config.title}</h2>
+          <p className="text-sm text-gray-600 mt-1">Composez votre devis en 3 étapes</p>
+        </div>
+      )}
 
-          {/* Sélection de la pièce (seulement pour domotique et installation) */}
-          {hasRooms && (
-            <div>
-              <select
-                value={selectedRoom}
-                onChange={handlers.roomChange}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
-                required
-              >
-                <option value="">Choisissez la pièce</option>
-                {currentRooms.map((room) => (
-                  <option key={room.value} value={room.value}>
-                    {room.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+      <div className={`flex flex-col lg:flex-row gap-4 ${embedded ? '' : 'lg:gap-6'}`}>
+        <div className={`flex-1 min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-5 ${embedded ? '' : 'shadow-sm'}`}>
+          <WizardProgress step={wizardStep} />
 
-          {/* ServiceCheckboxList consolidé */}
-          {!showSuccessMessage && (
-            <ServiceCheckboxList
-              hasRooms={hasRooms}
-              hasSpecificServices={hasSpecificServices}
+          {wizardStep === 1 && (
+            <StepZoneRoom
+              wizardZone={wizardZone}
               selectedRoom={selectedRoom}
-              currentRooms={currentRooms}
-              currentSpecificServices={currentSpecificServices}
-              getServicesForRoom={getServicesForRoom}
-              config={config}
-              selectedServices={selectedServices}
-              selectedInstallationType={selectedInstallationType}
-              selectedSecurityType={selectedSecurityType}
-              onServiceToggle={handlers.serviceToggle}
-              onSelectAll={handlers.selectAll}
-              onDeselectAll={handlers.deselectAll}
-              onInstallationTypeChange={handlers.installationTypeChange}
-              onSecurityTypeChange={handlers.securityTypeChange}
-              serviceType={serviceType}
+              interiorRooms={interiorRooms}
+              exteriorRooms={exteriorRooms}
+              handlers={handlers}
             />
           )}
 
-          {/* Message de succès */}
+          {wizardStep === 2 && (
+            <StepInstallation
+              wizardZone={wizardZone}
+              selectedInstallationType={selectedInstallationType}
+              selectedSecurityType={selectedSecurityType}
+              handlers={handlers}
+            />
+          )}
+
+          {wizardStep === 3 && (
+            <StepPrestations
+              groupedServices={groupedServicesStep3}
+              selectedServices={selectedServices}
+              serviceQuantities={serviceQuantities}
+              serviceInterrupteurs={serviceInterrupteurs}
+              handlers={handlers}
+            />
+          )}
+
           {showSuccessMessage && (
-            <div className="mt-3 mb-2 p-3 bg-green-50 border border-green-200 rounded-lg animate-fade-in">
-              <p className="text-green-800 text-sm text-center font-medium">
-                ✓ Prestation ajoutée avec succès. Vous pouvez ajouter une autre prestation.
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-green-800 text-sm text-center font-medium">{successMessage}</p>
+            </div>
+          )}
+
+          {editingItemId && (
+            <div className="mt-4 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-amber-900 text-xs text-center">
+                Modification en cours — enregistrez ou annulez pour recommencer une nouvelle pièce.
               </p>
             </div>
           )}
 
-          {/* Boutons d'action */}
-          <div className="flex justify-between items-center pt-2">
-            {/* Div pour Ajouter prestation et Annuler devis */}
-            <div className="flex flex-col items-start">
-              {/* Message "ajouter au devis" avec flèche animée (domotique/installation) */}
-              {!showSuccessMessage && 
-               (serviceType === 'domotique' || serviceType === 'installation') && 
-               selectedServices.length > 0 && 
-               selectedInstallationType && (
-                <div className="mb-1 flex items-center gap-1 text-green-600 text-xs">
-                  <span>ajouter au devis</span>
-                  <svg 
-                    className="w-3 h-3 animate-bounce" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M5 10l7 7m0 0l7-7m-7 7V3" 
-                    />
-                  </svg>
-                </div>
-              )}
-              <div className="flex space-x-2">
-                <button 
+          <div className="flex flex-wrap justify-between gap-2 mt-6 pt-4 border-t border-gray-100">
+            <div className="flex gap-2">
+              {(wizardStep > 1 || (embedded && onPrevPhase)) && (
+                <button
                   type="button"
-                  onClick={addToDevis}
-                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  disabled={
-                    selectedServices.length === 0 || 
-                    (hasRooms && selectedRoom && !selectedInstallationType) ||
-                    (config.categoryLabel === 'Portail / Volet' && !selectedInstallationType) ||
-                    (config.categoryLabel === 'Sécurité' && (!selectedSecurityType || (selectedSecurityType === 'filaire' && !selectedInstallationType)))
-                  }
+                  onClick={() => {
+                    if (wizardStep > 1) setWizardStep((s) => s - 1);
+                    else onPrevPhase?.();
+                  }}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  Ajouter prestation
+                  Précédent
                 </button>
-                <button 
+              )}
+              {!embedded && (
+                <button
                   type="button"
                   onClick={onCancel}
-                  className="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs"
+                  className="px-3 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg"
                 >
-                  Annuler devis
+                  Annuler
                 </button>
-              </div>
+              )}
             </div>
-            
-            {/* Div pour le bouton Visualiser devis à droite */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowDevisModal(true)}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors flex items-center space-x-1 text-xs"
-                disabled={devisItems.length === 0}
-              >
-                <span>Visualiser devis</span>
-                <span className="bg-white text-cyan-600 rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold">
-                  {devisItems.length}
-                </span>
-              </button>
+
+            <div className="flex gap-2">
+              {wizardStep < 3 && (
+                <button
+                  type="button"
+                  disabled={wizardStep === 1 ? !canGoStep2 : !canGoStep3()}
+                  onClick={() => setWizardStep((s) => s + 1)}
+                  className="px-4 py-2 text-sm bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Suivant
+                </button>
+              )}
+              {wizardStep === 3 && (
+                <button
+                  type="button"
+                  disabled={!canAddToDevis}
+                  onClick={addToDevis}
+                  className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  {editingItemId ? 'Enregistrer' : 'Ajouter au devis'}
+                </button>
+              )}
             </div>
           </div>
-        </form>
-      </div>
+        </div>
 
-      {/* Modal Devis */}
-      <DevisItemList
-        showDevisModal={showDevisModal}
-        devisItems={devisItems}
-        onCloseModal={() => setShowDevisModal(false)}
-        onRemoveDevisItem={removeDevisItem}
-        onQuantityChange={updateQuantity}
-        onGenerateDevis={onGenerateDevisClick}
-      />
-    </>
+        <aside className={`lg:w-[26rem] xl:w-[28rem] shrink-0 ${embedded ? 'mt-4 lg:mt-0' : 'mt-8 lg:mt-0'}`}>
+          <DevisItemList
+            variant="panel"
+            devisItems={devisItems}
+            onRemoveDevisItem={removeDevisItem}
+            onEditItem={startEditDevisItem}
+            copyTargetRooms={copyTargetRooms}
+            onCopyToRoom={copyDevisItemToRoom}
+            onGenerateDevis={() => generateDevis(onClose)}
+          />
+        </aside>
+      </div>
+    </div>
   );
 }

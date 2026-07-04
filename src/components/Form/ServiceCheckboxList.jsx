@@ -144,7 +144,7 @@ const ServiceCheckboxList = ({
   
   // Variables booléennes pour améliorer la lisibilité
   const isSecurity = config.categoryLabel === 'Sécurité';
-  const isSecurityWithoutType = isSecurity && !selectedSecurityType;
+  const isSecurityWithoutType = false;
   const hasSelectedServices = selectedServices.length > 0;
   const isDomotiqueOrInstallation = serviceType === 'domotique' || serviceType === 'installation';
   const needsRoomSelection = hasRooms && !selectedRoom && isDomotiqueOrInstallation;
@@ -154,9 +154,9 @@ const ServiceCheckboxList = ({
 
   const shouldShowSelectionButtons = !isSecurityWithoutType;
   const shouldShowServicesList = !isSecurityWithoutType;
-  const shouldShowInstallationType = (hasRooms && selectedRoom && hasSelectedServices) || 
+  const shouldShowInstallationType = (hasRooms && selectedRoom && hasSelectedServices) ||
                                       (hasSpecificServices && hasSelectedServices && config.categoryLabel === 'Portail / Volet') ||
-                                      (hasSpecificServices && hasSelectedServices && isSecurity && selectedSecurityType === 'filaire');
+                                      (hasSpecificServices && hasSelectedServices && isSecurity && selectedSecurityType !== 'wifi');
 
   // Services mémorisés pour éviter les recalculs (triés par ordre alphabétique)
   const services = useMemo(() => {
@@ -187,15 +187,13 @@ const ServiceCheckboxList = ({
 
   // Options des radio groups mémorisées
   const installationOptions = useMemo(() => [
-    { value: 'saignee_encastre', label: 'Saignée/Encastré' },
-    { value: 'saillie_moulure', label: 'Saillie/Moulure' },
-    { value: 'cloison_creuse', label: 'Cloison creuse' },
+    { value: 'saignee_encastre', label: 'Encastré dans les murs' },
+    { value: 'saillie_moulure', label: 'Saillie / Moulure' },
     { value: 'alimentation_existante', label: 'Alimentation existante' }
   ], []);
 
   const securityOptions = useMemo(() => [
-    { value: 'wifi', label: 'Wifi (système connecté)' },
-    { value: 'filaire', label: 'Filaire (système en local)' }
+    { value: 'wifi', label: 'Wifi (système connecté — sans passage de câble)' }
   ], []);
 
   // Afficher le message de sélection de pièce si nécessaire (domotique/installation)

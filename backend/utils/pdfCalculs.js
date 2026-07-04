@@ -143,18 +143,31 @@ const createMainOeuvreRows = (devisItems, isCompany = false) => {
         const totalTTC = totalHT + tva;
 
         const rangeesConnues = item.rangees != null && Number(item.rangees) > 0 ? Number(item.rangees) : 0;
+        const tarifUnitaire =
+          item.mainOeuvreParRangee != null && Number(item.mainOeuvreParRangee) > 0
+            ? Number(item.mainOeuvreParRangee)
+            : null;
         const nombreRangees =
           rangeesConnues > 0
             ? rangeesConnues
-            : totalHT > 0
-              ? Math.max(1, Math.round(totalHT / 260))
-              : 0;
+            : totalHT > 0 && tarifUnitaire
+              ? Math.max(1, Math.round(totalHT / tarifUnitaire))
+              : totalHT > 0
+                ? Math.max(1, Math.round(totalHT / 200))
+                : 0;
         const prixParRangeeAffiche =
-          nombreRangees > 0 ? Math.round((totalHT / nombreRangees) * 100) / 100 : 260;
+          tarifUnitaire ??
+          (nombreRangees > 0 ? Math.round((totalHT / nombreRangees) * 100) / 100 : 200);
+        const moTypeLabel =
+          item.mainOeuvreType === 'changement'
+            ? 'changement tableau électrique'
+            : item.mainOeuvreType === 'pose'
+              ? 'pose tableau électrique'
+              : 'tableau électrique';
         const designation =
           nombreRangees > 0
-            ? `Main d'œuvre tableau électrique (${nombreRangees} rangée${nombreRangees > 1 ? 's' : ''} × ${prixParRangeeAffiche}€)`
-            : "Main d'œuvre tableau électrique";
+            ? `Main d'œuvre ${moTypeLabel} (${nombreRangees} rangée${nombreRangees > 1 ? 's' : ''} × ${prixParRangeeAffiche}€)`
+            : `Main d'œuvre ${moTypeLabel}`;
         
         mainOeuvreRows.push([
           item.room || 'Tableau électrique',

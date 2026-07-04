@@ -4,6 +4,14 @@
  * Version backend - Logique identique au frontend
  */
 
+const {
+  countInterrupteursInstallation,
+  countInterrupteursForInstallationItem,
+  countTelerupteursFromPrestations,
+  shouldAddTelerupteurFromPrestations,
+  isInstallationDevisItem
+} = require('./specialPrestation');
+
 // ==================== FONCTIONS DE COMPTAGE ====================
 
 /**
@@ -97,35 +105,27 @@ function countEclairages(devisItems) {
   return totalEclairages;
 }
 
-/**
- * Compter le nombre d'interrupteurs par pièce
- * @param {Array} devisItems - Les items du devis
- * @returns {number} Nombre total d'interrupteurs
- */
 function countInterrupteurs(devisItems) {
-  if (!devisItems || devisItems.length === 0) return 0;
+  return countInterrupteursInstallation(devisItems);
+}
 
-  let totalInterrupteurs = 0;
+function appendTelerupteurMaterial(materiels, quantity = 1) {
+  const qty = Math.max(0, parseInt(quantity, 10) || 0);
+  if (qty <= 0) return;
 
-  devisItems.forEach(item => {
-    if (item.type === 'tableau') return;
+  const existing = materiels.find((m) => m.code === 'TEL001');
+  if (existing) {
+    existing.quantity = Math.max(existing.quantity || 0, qty);
+    return;
+  }
 
-    item.services.forEach(service => {
-      const label = service.label.toLowerCase();
-      const quantity = service.quantity || 1;
-
-      if (label.includes('interrupteur')) {
-        const interrupteurMatch = label.match(/(\d+)\s*interrupteur/i);
-        if (interrupteurMatch) {
-          totalInterrupteurs += parseInt(interrupteurMatch[1]) * quantity;
-        } else {
-          totalInterrupteurs += quantity;
-        }
-      }
-    });
+  materiels.push({
+    label: 'Telerupteur',
+    quantity: qty,
+    code: 'TEL001',
+    category: 'tableau',
+    serviceType: 'tableau'
   });
-
-  return totalInterrupteurs;
 }
 
 /**
@@ -351,15 +351,15 @@ function calculateDisjoncteursFromPrestations(devisItems) {
  * Contacteur HC et télérupteur = 1 place chacun
  * @param {Object} disjoncteurs - { d2, d10, d16, d20, d32, triphase }
  * @param {boolean} hasContacteurHC - Présence d'un contacteur HC (chauffe-eau)
- * @param {boolean} hasTelerupteur - Présence d'un télérupteur
+ * @param {number} telerupteurCount - Nombre de télérupteurs (1 place chacun)
  * @returns {number} Nombre total de places nécessaires
  */
-function calculatePlacesNecessaires(disjoncteurs, hasContacteurHC = false, hasTelerupteur = false) {
+function calculatePlacesNecessaires(disjoncteurs, hasContacteurHC = false, telerupteurCount = 0) {
   const placesDisjoncteurs = disjoncteurs.d2 + disjoncteurs.d10 + disjoncteurs.d16 + 
                              disjoncteurs.d20 + disjoncteurs.d32;
   const placesTriphases = disjoncteurs.triphase * 3; // 3 places par disjoncteur triphasé
   const placesContacteurHC = hasContacteurHC ? 1 : 0; // 1 place pour le contacteur HC
-  const placesTelerupteur = hasTelerupteur ? 1 : 0; // 1 place pour le télérupteur
+  const placesTelerupteur = Math.max(0, parseInt(telerupteurCount, 10) || 0);
   return placesDisjoncteurs + placesTriphases + placesContacteurHC + placesTelerupteur;
 }
 
@@ -380,9 +380,9 @@ function calculateRangees(nombrePlaces) {
  * @param {number} [prixParRangee=260] - € HT par rangée
  * @returns {number} Prix de la main d'œuvre
  */
-function calculateMainOeuvre(nombreRangees, prixParRangee = 260) {
+function calculateMainOeuvre(nombreRangees, prixParRangee = 200) {
   const p = Number(prixParRangee);
-  const rate = Number.isFinite(p) && p > 0 ? p : 260;
+  const rate = Number.isFinite(p) && p > 0 ? p : 200;
   return rate * nombreRangees;
 }
 
@@ -399,13 +399,16 @@ function calculateTableauxRangees(questionnaires = [], disjoncteursPrestations =
   // Calculer si contacteur HC et télérupteur sont nécessaires
   const hasContacteurHCPrestations = hasChauffeau(devisItems); // Contacteur HC nécessaire à cause des prestations
   const hasContacteurHCQuestionnaire = questionnaires.some(q => q.lignesSpeciales && q.lignesSpeciales.includes('chauffeau')); // Contacteur HC dans questionnaire
-  const nombreInterrupteurs = countInterrupteurs(devisItems);
-  const hasTelerupteurPrestations = nombreInterrupteurs >= 3; // Télérupteur nécessaire à cause des prestations
+  const hasTelerupteurPrestations = countTelerupteursFromPrestations(devisItems);
   const hasTelerupteurQuestionnaire = questionnaires.some(q => q.telerupteur === true); // Télérupteur dans questionnaire
   
   // Si pas de questionnaires, calculer à partir des prestations uniquement
   if (!questionnaires || questionnaires.length === 0) {
-    const placesPrestations = calculatePlacesNecessaires(disjoncteursPrestations, hasContacteurHCPrestations, hasTelerupteurPrestations);
+    const placesPrestations = calculatePlacesNecessaires(
+      disjoncteursPrestations,
+      hasContacteurHCPrestations,
+      hasTelerupteurPrestations
+    );
     const rangeesPrestations = calculateRangees(placesPrestations);
     
     // Maximum 4 rangées par tableau
@@ -448,7 +451,7 @@ function calculateTableauxRangees(questionnaires = [], disjoncteursPrestations =
   let placesRestantesPrestations = calculatePlacesNecessaires(
     disjoncteursPrestations, 
     hasContacteurHCPrestations && !hasContacteurHCQuestionnaire, 
-    hasTelerupteurPrestations && !hasTelerupteurQuestionnaire
+    !hasTelerupteurQuestionnaire ? hasTelerupteurPrestations : 0
   );
   
   // Parcourir les questionnaires existants pour utiliser les places disponibles
@@ -479,8 +482,13 @@ function calculateTableauxRangees(questionnaires = [], disjoncteursPrestations =
     const placesD20Chauffeau = (hasChauffeauQ && !hasContacteurHCPrestations) ? 1 : 0; // D20 pour chauffe-eau = 1 place
     // - Télérupteur (1 place si présent dans ce questionnaire, ou si >= 3 interrupteurs ET premier tableau)
     // Ne compter qu'une seule fois : si nécessaire à cause des prestations, il est déjà dans placesRestantesPrestations
-    const hasTelerupteurQ = questionnaire.telerupteur === true || (index === 0 && hasTelerupteurPrestations && !hasTelerupteurQuestionnaire);
-    const placesTelerupteur = hasTelerupteurQ ? 1 : 0;
+    const hasTelerupteurQ = questionnaire.telerupteur === true
+      || (index === 0 && hasTelerupteurPrestations > 0 && !hasTelerupteurQuestionnaire);
+    const placesTelerupteur = questionnaire.telerupteur === true
+      ? Math.max(1, index === 0 ? hasTelerupteurPrestations : 0)
+      : (index === 0 && hasTelerupteurPrestations > 0 && !hasTelerupteurQuestionnaire
+        ? hasTelerupteurPrestations
+        : 0);
     
     const placesUtiliseesQ = placesDisjoncteursQ + placesTriphasesQ + 
                              placesLignesSpeciales + placesRadiateurs + 
@@ -692,16 +700,11 @@ function calculateTableauFromQuestionnaire(questionnaire, devisItems = [], prixP
     });
   }
   
-  // Ajouter télérupteur si sélectionné dans le questionnaire OU si >= 3 interrupteurs
-  const nombreInterrupteurs = countInterrupteurs(devisItems);
-  if (questionnaire.telerupteur === true || nombreInterrupteurs >= 3) {
-    materiels.push({
-      label: 'Telerupteur',
-      quantity: 1,
-      code: 'TEL001',
-      category: 'tableau',
-      serviceType: 'tableau'
-    });
+  // Ajouter télérupteur si sélectionné dans le questionnaire OU ≥ 3 interrupteurs (prestations récap)
+  const telQtyPrestations = countTelerupteursFromPrestations(devisItems);
+  const telQty = Math.max(questionnaire.telerupteur === true ? 1 : 0, telQtyPrestations);
+  if (telQty > 0) {
+    appendTelerupteurMaterial(materiels, telQty);
   }
   
   // Ajouter 50€ de fourniture pour chaque tableau
@@ -746,9 +749,7 @@ function calculateTableauFromQuestionnaireAndPrestations(questionnaires = [], de
   // Calculer les tableaux et rangées nécessaires
   const tableauxConfig = calculateTableauxRangees(questionnaires, disjoncteursPrestations, devisItems);
   
-  // Compter les interrupteurs une seule fois pour tous les tableaux
-  const nombreInterrupteurs = countInterrupteurs(devisItems);
-  const shouldAddTelerupteur = nombreInterrupteurs >= 3;
+  const telerupteurQtyPrestations = countTelerupteursFromPrestations(devisItems);
   
   // Variable pour suivre si les disjoncteurs des prestations ont déjà été ajoutés
   let disjoncteursPrestationsAjoutes = false;
@@ -893,15 +894,9 @@ function calculateTableauFromQuestionnaireAndPrestations(questionnaires = [], de
           });
         }
         
-        // Ajouter télérupteur si sélectionné dans le questionnaire
+        // Ajouter télérupteur si sélectionné dans le questionnaire (au moins 1)
         if (questionnaire.telerupteur === true) {
-          materiels.push({
-            label: 'Telerupteur',
-            quantity: 1,
-            code: 'TEL001',
-            category: 'tableau',
-            serviceType: 'tableau'
-          });
+          appendTelerupteurMaterial(materiels, 1);
         }
         
         // Incrémenter le compteur pour le prochain tableau du questionnaire
@@ -964,19 +959,9 @@ function calculateTableauFromQuestionnaireAndPrestations(questionnaires = [], de
       }
     }
     
-    // Ajouter télérupteur si >= 3 interrupteurs (une seule fois pour tous les tableaux)
-    if (shouldAddTelerupteur && index === 0) {
-      // Vérifier qu'on n'a pas déjà ajouté un télérupteur (par exemple depuis un questionnaire)
-      const hasTelerupteur = materiels.some(m => m.code === 'TEL001');
-      if (!hasTelerupteur) {
-        materiels.push({
-          label: 'Telerupteur',
-          quantity: 1,
-          code: 'TEL001',
-          category: 'tableau',
-          serviceType: 'tableau'
-        });
-      }
+    // Ajouter télérupteur si ≥ 3 interrupteurs dans le récap (premier tableau)
+    if (telerupteurQtyPrestations > 0 && index === 0) {
+      appendTelerupteurMaterial(materiels, telerupteurQtyPrestations);
     }
     
     // Ajouter 50€ de fourniture pour chaque tableau
@@ -1011,50 +996,118 @@ function calculateTableauFromQuestionnaireAndPrestations(questionnaires = [], de
  * @param {number} [options.mainOeuvreParRangee=260] - € HT par rangée (config admin)
  * @returns {Object} { materiels: Array, mainOeuvre: number, rangees: number }
  */
-function calculateTableauMateriels(devisItems, tableauData, options = {}) {
-  const prixParRangee =
-    options.mainOeuvreParRangee != null && Number(options.mainOeuvreParRangee) > 0
-      ? Number(options.mainOeuvreParRangee)
-      : 260;
+function resolveMainOeuvreRates(options = {}) {
+  const pose =
+    options.mainOeuvrePoseParRangee != null && Number(options.mainOeuvrePoseParRangee) > 0
+      ? Number(options.mainOeuvrePoseParRangee)
+      : 200;
+  const changement =
+    options.mainOeuvreChangementParRangee != null && Number(options.mainOeuvreChangementParRangee) > 0
+      ? Number(options.mainOeuvreChangementParRangee)
+      : 360;
+  return { pose, changement };
+}
 
-  // Si "garder mon tableau", ne rien calculer
-  if (!tableauData || tableauData.choice === 'garder') {
+function normalizeTableauData(tableauData) {
+  if (!tableauData) return null;
+  if (tableauData.choice === 'inexistant') {
+    return { ...tableauData, questionnaire: null, changeType: null };
+  }
+  return tableauData;
+}
+
+function getMainOeuvreRateForTableau(tableauData, rates) {
+  const data = normalizeTableauData(tableauData);
+  if (!data || data.choice === 'garder') return null;
+  if (data.choice === 'inexistant') return rates.pose;
+  if (data.choice === 'changer') return rates.changement;
+  return rates.pose;
+}
+
+function withMainOeuvreMeta(result, mainOeuvreType, mainOeuvreParRangee) {
+  return {
+    ...result,
+    mainOeuvreType,
+    mainOeuvreParRangee
+  };
+}
+
+function calculateTableauMateriels(devisItems, tableauData, options = {}) {
+  const rates = resolveMainOeuvreRates(options);
+  const data = normalizeTableauData(tableauData);
+
+  if (!data || data.choice === 'garder') {
     return { materiels: [], mainOeuvre: 0, rangees: 0 };
   }
 
-  // Pour "nouveau tableau", utiliser les prestations uniquement
-  if (tableauData.choice === 'inexistant') {
-    const result = calculateTableauFromQuestionnaireAndPrestations([], devisItems, prixParRangee);
-    // Calculer le total des rangées à partir des tableaux
-    const totalRangees = result.tableaux ? 
-      result.tableaux.reduce((sum, t) => sum + t.rangees, 0) : 0;
-    return { ...result, rangees: totalRangees };
+  // Nouveau tableau / devis rapide : tarif pose (prioritaire sur changeType)
+  if (data.choice === 'inexistant') {
+    const prixPose = getMainOeuvreRateForTableau(data, rates);
+    const result = calculateTableauFromQuestionnaireAndPrestations([], devisItems, prixPose);
+    const totalRangees = result.tableaux
+      ? result.tableaux.reduce((sum, t) => sum + t.rangees, 0)
+      : 0;
+    return withMainOeuvreMeta({ ...result, rangees: totalRangees }, 'pose', prixPose);
   }
 
-  // Pour "changer mon tableau", utiliser le questionnaire
-  if (tableauData.choice === 'changer' && tableauData.questionnaire) {
-    if (tableauData.changeType === 'uniquement') {
-      return calculateTableauFromQuestionnaire(tableauData.questionnaire, [], prixParRangee);
-    } else if (tableauData.changeType === 'commencer') {
-      const result = calculateTableauFromQuestionnaireAndPrestations(
-        [tableauData.questionnaire],
-        devisItems,
-        prixParRangee
+  // Changement / remplacement de tableau
+  if (data.choice === 'changer' && data.questionnaire) {
+    const prixChangement = getMainOeuvreRateForTableau(data, rates);
+    if (data.changeType === 'uniquement') {
+      return withMainOeuvreMeta(
+        calculateTableauFromQuestionnaire(data.questionnaire, [], prixChangement),
+        'changement',
+        prixChangement
       );
-      // Calculer le total des rangées à partir des tableaux
-      const totalRangees = result.tableaux ? 
-        result.tableaux.reduce((sum, t) => sum + t.rangees, 0) : 0;
-      return { ...result, rangees: totalRangees };
+    }
+    if (data.changeType === 'commencer') {
+      const result = calculateTableauFromQuestionnaireAndPrestations(
+        [data.questionnaire],
+        devisItems,
+        prixChangement
+      );
+      const totalRangees = result.tableaux
+        ? result.tableaux.reduce((sum, t) => sum + t.rangees, 0)
+        : 0;
+      return withMainOeuvreMeta({ ...result, rangees: totalRangees }, 'changement', prixChangement);
     }
   }
 
   return { materiels: [], mainOeuvre: 0, rangees: 0 };
 }
 
+/**
+ * Recalcule main d'œuvre + matériels tableau sur les items existants (tarifs admin à jour).
+ */
+async function refreshTableauItemsInDevis(devisItems, options = {}) {
+  const rates = resolveMainOeuvreRates(options);
+  const prestationsOnly = (devisItems || []).filter((item) => item.type !== 'tableau');
+
+  return (devisItems || []).map((item) => {
+    if (item.type !== 'tableau' || !item.tableauData) return item;
+    if (item.tableauData.choice === 'garder') return item;
+
+    const result = calculateTableauMateriels(prestationsOnly, item.tableauData, rates);
+    return {
+      ...item,
+      services: result.materiels || item.services,
+      mainOeuvre: result.mainOeuvre ?? 0,
+      rangees: result.rangees ?? item.rangees,
+      mainOeuvreType: result.mainOeuvreType,
+      mainOeuvreParRangee: result.mainOeuvreParRangee
+    };
+  });
+}
+
 module.exports = {
   countPrises,
   countEclairages,
   countInterrupteurs,
+  countInterrupteursInstallation,
+  countInterrupteursForInstallationItem,
+  countTelerupteursFromPrestations,
+  isInstallationDevisItem,
+  shouldAddTelerupteurFromPrestations,
   countRadiateurs,
   countAppareilsElectromenagers,
   countAppareilsTriphases,
@@ -1070,6 +1123,9 @@ module.exports = {
   groupMaterielsByCode,
   calculateTableauFromQuestionnaire,
   calculateTableauFromQuestionnaireAndPrestations,
-  calculateTableauMateriels
+  calculateTableauMateriels,
+  normalizeTableauData,
+  getMainOeuvreRateForTableau,
+  refreshTableauItemsInDevis
 };
 

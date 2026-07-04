@@ -10,7 +10,6 @@ const COULEURS_MATERIEL = {
   'violet': { hex: '#8b5cf6', label: 'Tableau' },
   'bleu_fonce': { hex: '#1e40af', label: 'Saignée/Encastré' },
   'bleu_moyen': { hex: '#3b82f6', label: 'Saillie/Moulure' },
-  'bleu_clair': { hex: '#60a5fa', label: 'Cloison creuse' },
   'bleu_marine': { hex: '#1e3a8a', label: 'Alimentation existante' }
 };
 
@@ -315,6 +314,19 @@ const Admin = () => {
               Configuration
             </button>
             <button
+              onClick={() => setActiveTab('special')}
+              className={`${
+                activeTab === 'special'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+              Spécial
+            </button>
+            <button
               onClick={() => setActiveTab('devis')}
               className={`${
                 activeTab === 'devis'
@@ -374,6 +386,7 @@ const Admin = () => {
           {activeTab === 'materiel' && <MaterielManager />}
           {activeTab === 'prestation' && <PrestationManager />}
           {activeTab === 'config' && <ConfigManager />}
+          {activeTab === 'special' && <SpecialInterrupteurManager />}
           {activeTab === 'devis' && <DevisManager quotes={savedQuotes} setQuotes={setSavedQuotes} />}
           {activeTab === 'rapid' && <RapidDevisConfig onUnauthorized={() => { ApiService.logoutAdmin(); setIsAuthenticated(false); }} />}
           {activeTab === 'tableauElectrique' && (
@@ -391,20 +404,39 @@ const Admin = () => {
   );
 };
 
-// Tarif main d'œuvre par rangée (tableau électrique)
+// Tarifs main d'œuvre par rangée (tableau électrique)
 const TableauElectriqueConfig = ({ onUnauthorized }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [mainOeuvreParRangee, setMainOeuvreParRangee] = useState('260');
+  const [mainOeuvrePoseParRangee, setMainOeuvrePoseParRangee] = useState('200');
+  const [mainOeuvreChangementParRangee, setMainOeuvreChangementParRangee] = useState('360');
   const [updatedAt, setUpdatedAt] = useState(null);
+  const [tableauMateriels, setTableauMateriels] = useState([]);
+  const [editingMateriel, setEditingMateriel] = useState(null);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await ApiService.getTableauConfig();
-      setMainOeuvreParRangee(String(data.main_oeuvre_par_rangee ?? 260));
+      const [data, allMateriel] = await Promise.all([
+        ApiService.getTableauConfig(),
+        ApiService.getAllMateriel()
+      ]);
+      setMainOeuvrePoseParRangee(
+        String(data.main_oeuvre_pose_par_rangee ?? data.main_oeuvre_par_rangee ?? 200)
+      );
+      setMainOeuvreChangementParRangee(
+        String(data.main_oeuvre_changement_par_rangee ?? 360)
+      );
       setUpdatedAt(data.updated_at || null);
+      setTableauMateriels(
+        (allMateriel || [])
+          .filter((m) => m.couleur === 'violet')
+          .map((m) => ({
+            ...m,
+            prix_ht: typeof m.prix_ht === 'number' ? m.prix_ht : Number(m.prix_ht) || 0
+          }))
+      );
     } catch (e) {
       if (e?.message?.toLowerCase().includes('autorisé') && typeof onUnauthorized === 'function') {
         onUnauthorized();
@@ -420,15 +452,59 @@ const TableauElectriqueConfig = ({ onUnauthorized }) => {
     load();
   }, [load]);
 
+  const parsePositiveRate = (value) => {
+    const n = Number(String(value ?? '').trim().replace(',', '.'));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
   const save = async () => {
     try {
-      await ApiService.updateTableauConfig({
-        main_oeuvre_par_rangee: parseFloat(mainOeuvreParRangee, 10)
+      const pose = parsePositiveRate(mainOeuvrePoseParRangee);
+      const changement = parsePositiveRate(mainOeuvreChangementParRangee);
+      if (pose == null) {
+        alert('Le tarif pose doit être un nombre strictement positif (ex. 220).');
+        return;
+      }
+      if (changement == null) {
+        alert('Le tarif changement doit être un nombre strictement positif (ex. 360).');
+        return;
+      }
+      const result = await ApiService.updateTableauConfig({
+        main_oeuvre_pose_par_rangee: pose,
+        main_oeuvre_changement_par_rangee: changement,
+        main_oeuvre_par_rangee: pose
       });
-      await load();
-      alert('Tarif enregistré. Les nouveaux devis utiliseront ce montant.');
+      setMainOeuvrePoseParRangee(String(pose));
+      setMainOeuvreChangementParRangee(String(changement));
+      setUpdatedAt(result.updated_at || null);
+      alert('Tarifs enregistrés. Les nouveaux devis utiliseront ces montants.');
     } catch (e) {
       alert(e?.message || 'Erreur sauvegarde');
+    }
+  };
+
+  const handleEditMateriel = (item) => {
+    setEditingMateriel({
+      ...item,
+      prix_ht: String(item.prix_ht ?? 0)
+    });
+  };
+
+  const handleSubmitMaterielEdit = async (e) => {
+    e.preventDefault();
+    if (!editingMateriel) return;
+    try {
+      const prix = parsePositiveRate(editingMateriel.prix_ht);
+      if (prix == null) {
+        alert('Le prix doit être un nombre strictement positif.');
+        return;
+      }
+      await ApiService.updateMateriel(editingMateriel.id, { prix_ht: prix });
+      setEditingMateriel(null);
+      await load();
+      alert('Prix matériel enregistré.');
+    } catch (err) {
+      alert(err?.message || 'Erreur mise à jour matériel');
     }
   };
 
@@ -436,24 +512,41 @@ const TableauElectriqueConfig = ({ onUnauthorized }) => {
   if (error) return <div className="text-center py-8 text-red-600">Erreur : {error}</div>;
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 space-y-6 max-w-lg">
+    <div className="bg-white rounded-lg shadow p-6 space-y-8 max-w-4xl">
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">Tableau électrique — Main d&apos;œuvre</h2>
         <p className="text-sm text-gray-600">
-          Montant HT facturé par <strong>rangée</strong> de tableau (calcul automatique des devis : nouveau tableau,
-          changement de tableau, devis rapide).
+          Deux tarifs HT par <strong>rangée</strong> : pose pour un nouveau tableau (devis rapide, tableau
+          inexistant), changement pour le remplacement ou la mise à niveau d&apos;un tableau existant.
         </p>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">€ HT par rangée</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Pose tableau — € HT par rangée
+        </label>
         <input
           type="number"
           step="0.01"
           min="0.01"
-          value={mainOeuvreParRangee}
-          onChange={(e) => setMainOeuvreParRangee(e.target.value)}
+          value={mainOeuvrePoseParRangee}
+          onChange={(e) => setMainOeuvrePoseParRangee(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
         />
+        <p className="text-xs text-gray-500 mt-1">Nouveau tableau, devis rapide</p>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Changement / remplacement — € HT par rangée
+        </label>
+        <input
+          type="number"
+          step="0.01"
+          min="0.01"
+          value={mainOeuvreChangementParRangee}
+          onChange={(e) => setMainOeuvreChangementParRangee(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+        />
+        <p className="text-xs text-gray-500 mt-1">Remplacement tableau, changement + prestations</p>
       </div>
       {updatedAt && (
         <p className="text-xs text-gray-500">Dernière mise à jour : {updatedAt}</p>
@@ -463,9 +556,549 @@ const TableauElectriqueConfig = ({ onUnauthorized }) => {
         onClick={save}
         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
       >
-        Enregistrer
+        Enregistrer les tarifs
       </button>
+
+      <div className="border-t border-gray-200 pt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Matériels tableau (prix HT)</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Comme dans l&apos;onglet Matériel, seul le <strong>prix</strong> est modifiable pour ces références
+          (générées automatiquement).
+        </p>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Désignation</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prix HT (€)</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {tableauMateriels.map((item) => (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-mono text-gray-900">{item.code}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{item.designation}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{Number(item.prix_ht).toFixed(2)} €</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => handleEditMateriel(item)}
+                      className="text-blue-600 hover:text-blue-900"
+                      title="Modifier le prix"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {tableauMateriels.length === 0 && (
+                <tr>
+                  <td colSpan="4" className="px-4 py-6 text-center text-gray-500 text-sm">
+                    Aucun matériel tableau (violet) trouvé.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {editingMateriel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Modifier le prix — {editingMateriel.code}</h3>
+            <p className="text-sm text-gray-600 mb-4">{editingMateriel.designation}</p>
+            <form onSubmit={handleSubmitMaterielEdit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prix HT (€) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={editingMateriel.prix_ht}
+                  onChange={(e) =>
+                    setEditingMateriel((prev) => ({ ...prev, prix_ht: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingMateriel(null)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
+  );
+};
+
+// Prestation spéciale interrupteur éclairage (main d'œuvre + liaisons matériels)
+const SPECIAL_INTERRUPTEUR_CODE = 'PINT001';
+
+const SpecialInterrupteurManager = () => {
+  const [prestation, setPrestation] = useState(null);
+  const [prixHt, setPrixHt] = useState('');
+  const [liaisons, setLiaisons] = useState([]);
+  const [materiels, setMateriels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [savingPrix, setSavingPrix] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [newConfig, setNewConfig] = useState({
+    code: '',
+    types_installation: [],
+    materiel_codes: []
+  });
+  const [editingLiaison, setEditingLiaison] = useState(null);
+
+  const installationTypes = [
+    { value: 'saignee_encastre', label: 'Encastré dans les murs' },
+    { value: 'saillie_moulure', label: 'Saillie / Moulure' },
+    { value: 'alimentation_existante', label: 'Alimentation existante' },
+    { value: 'wifi', label: 'Wifi' }
+  ];
+
+  const resetNewConfig = useCallback(() => {
+    setNewConfig({ code: '', types_installation: [], materiel_codes: [] });
+  }, []);
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [presta, liaisonsData, materielsData] = await Promise.all([
+        ApiService.getSpecialInterrupteurPrestation(),
+        ApiService.getAllLiaisons(),
+        ApiService.getAllMateriel()
+      ]);
+      setPrestation(presta);
+      setPrixHt(String(presta?.prix_ht ?? ''));
+      setLiaisons((liaisonsData || []).filter((l) => l.prestation_code === SPECIAL_INTERRUPTEUR_CODE));
+      setMateriels(materielsData || []);
+    } catch (err) {
+      setError(err.message || 'Erreur chargement prestation spéciale');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const toggleTypeInstallation = (value, isEdit = false) => {
+    if (isEdit) {
+      setEditingLiaison((prev) => {
+        if (!prev) return prev;
+        const exists = prev.types_installation.includes(value);
+        return {
+          ...prev,
+          types_installation: exists
+            ? prev.types_installation.filter((t) => t !== value)
+            : [...prev.types_installation, value]
+        };
+      });
+      return;
+    }
+    setNewConfig((prev) => {
+      const exists = prev.types_installation.includes(value);
+      return {
+        ...prev,
+        types_installation: exists
+          ? prev.types_installation.filter((t) => t !== value)
+          : [...prev.types_installation, value]
+      };
+    });
+  };
+
+  const toggleMateriel = (code, isEdit = false) => {
+    if (isEdit) {
+      setEditingLiaison((prev) => {
+        if (!prev) return prev;
+        const exists = prev.materiel_codes.includes(code);
+        return {
+          ...prev,
+          materiel_codes: exists
+            ? prev.materiel_codes.filter((c) => c !== code)
+            : [...prev.materiel_codes, code]
+        };
+      });
+      return;
+    }
+    setNewConfig((prev) => {
+      const exists = prev.materiel_codes.includes(code);
+      return {
+        ...prev,
+        materiel_codes: exists
+          ? prev.materiel_codes.filter((c) => c !== code)
+          : [...prev.materiel_codes, code]
+      };
+    });
+  };
+
+  const handleSavePrix = async (e) => {
+    e.preventDefault();
+    const value = parseFloat(prixHt);
+    if (Number.isNaN(value) || value < 0) {
+      alert('Prix HT invalide');
+      return;
+    }
+    try {
+      setSavingPrix(true);
+      const updated = await ApiService.updateSpecialInterrupteurPrestation(value);
+      setPrestation(updated);
+      setPrixHt(String(updated.prix_ht ?? value));
+      alert('Main d\'œuvre enregistrée.');
+    } catch (err) {
+      alert(err?.message || 'Erreur enregistrement');
+    } finally {
+      setSavingPrix(false);
+    }
+  };
+
+  const handleSubmitAdd = async (e) => {
+    e.preventDefault();
+    if (newConfig.types_installation.length === 0) {
+      alert('Sélectionnez au moins un type d\'installation');
+      return;
+    }
+    if (newConfig.materiel_codes.length === 0) {
+      alert('Sélectionnez au moins un matériel');
+      return;
+    }
+    try {
+      const liaisonData = {
+        prestation_code: SPECIAL_INTERRUPTEUR_CODE,
+        types_installation: newConfig.types_installation,
+        materiel_codes: newConfig.materiel_codes
+      };
+      if (newConfig.code.trim()) liaisonData.code = newConfig.code.trim();
+      await ApiService.createLiaison(liaisonData);
+      setShowAddModal(false);
+      resetNewConfig();
+      await loadData();
+    } catch (err) {
+      alert(err?.message || 'Erreur création liaison');
+    }
+  };
+
+  const handleEditLiaison = (liaison) => {
+    setEditingLiaison({
+      id: liaison.id,
+      code: liaison.code || '',
+      types_installation: [...(liaison.types_installation || [])],
+      materiel_codes: [...(liaison.materiel_codes || [])]
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSubmitEdit = async (e) => {
+    e.preventDefault();
+    if (!editingLiaison) return;
+    if (editingLiaison.types_installation.length === 0 || editingLiaison.materiel_codes.length === 0) {
+      alert('Types d\'installation et matériels requis');
+      return;
+    }
+    try {
+      await ApiService.updateLiaison(editingLiaison.id, {
+        code: editingLiaison.code.trim() || undefined,
+        prestation_code: SPECIAL_INTERRUPTEUR_CODE,
+        types_installation: editingLiaison.types_installation,
+        materiel_codes: editingLiaison.materiel_codes
+      });
+      setShowEditModal(false);
+      setEditingLiaison(null);
+      await loadData();
+      alert('Liaison mise à jour.');
+    } catch (err) {
+      alert(err?.message || 'Erreur mise à jour');
+    }
+  };
+
+  const handleDeleteLiaison = async (id) => {
+    if (!window.confirm('Supprimer cette liaison ?')) return;
+    try {
+      await ApiService.deleteLiaison(id);
+      await loadData();
+    } catch (err) {
+      alert(err?.message || 'Erreur suppression');
+    }
+  };
+
+  if (loading) return <div className="text-center py-8">Chargement...</div>;
+  if (error) return <div className="text-center py-8 text-red-600">Erreur : {error}</div>;
+
+  return (
+    <>
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Prestation spéciale — Interrupteur éclairage</h2>
+        <p className="text-sm text-gray-600 mb-6">
+          Ajoutée automatiquement sur chaque pièce <strong>installation</strong> selon le total de la colonne Int.
+          (éclairages). Le code, le libellé et la value ne sont pas modifiables ; seule la main d&apos;œuvre et les
+          liaisons matériels le sont.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Code (fixe)</label>
+            <input
+              type="text"
+              readOnly
+              value={prestation?.code || SPECIAL_INTERRUPTEUR_CODE}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm font-mono"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Service value (fixe)</label>
+            <input
+              type="text"
+              readOnly
+              value={prestation?.service_value || 'interrupteur_eclairage'}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm font-mono"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Libellé (fixe)</label>
+            <input
+              type="text"
+              readOnly
+              value={prestation?.service_label || 'Installation interrupteur(s) — éclairage'}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm"
+            />
+          </div>
+        </div>
+
+        <form onSubmit={handleSavePrix} className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Main d&apos;œuvre — prix HT unitaire (€)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={prixHt}
+              onChange={(e) => setPrixHt(e.target.value)}
+              className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={savingPrix}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50"
+          >
+            {savingPrix ? 'Enregistrement…' : 'Enregistrer le tarif'}
+          </button>
+        </form>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Liaisons matériels ({SPECIAL_INTERRUPTEUR_CODE})</h3>
+          <button
+            type="button"
+            onClick={() => {
+              resetNewConfig();
+              setShowAddModal(true);
+            }}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+          >
+            Ajouter une liaison
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Types d&apos;installation</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Matériels</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {liaisons.map((liaison) => (
+                <tr key={liaison.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-mono">{liaison.code}</td>
+                  <td className="px-6 py-4 text-sm">
+                    {(liaison.types_installation || [])
+                      .map((t) => installationTypes.find((it) => it.value === t)?.label || t)
+                      .join(', ')}
+                  </td>
+                  <td className="px-6 py-4 text-sm whitespace-pre-line">
+                    {(liaison.materiel_codes || []).join(', ')}
+                  </td>
+                  <td className="px-6 py-4 text-right space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEditLiaison(liaison)}
+                      className="text-blue-600 hover:text-blue-800 text-sm"
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteLiaison(liaison.id)}
+                      className="text-red-600 hover:text-red-800 text-sm"
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {liaisons.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500 text-sm">
+                    Aucune liaison. Ajoutez des matériels par type d&apos;installation (comme dans Configuration).
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">Nouvelle liaison — {SPECIAL_INTERRUPTEUR_CODE}</h3>
+            <form onSubmit={handleSubmitAdd} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Code liaison (optionnel)</label>
+                <input
+                  type="text"
+                  value={newConfig.code}
+                  onChange={(e) => setNewConfig((p) => ({ ...p, code: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="Auto si vide"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Types d&apos;installation *</label>
+                <div className="space-y-2">
+                  {installationTypes.map((type) => (
+                    <label key={type.value} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={newConfig.types_installation.includes(type.value)}
+                        onChange={() => toggleTypeInstallation(type.value)}
+                      />
+                      {type.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Matériels *</label>
+                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
+                  {materiels.map((m) => (
+                    <label key={m.code} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={newConfig.materiel_codes.includes(m.code)}
+                        onChange={() => toggleMateriel(m.code)}
+                      />
+                      <span className="font-mono text-xs">{m.code}</span> — {m.designation}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-gray-100 rounded-lg">
+                  Annuler
+                </button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  Créer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && editingLiaison && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">Modifier liaison — {SPECIAL_INTERRUPTEUR_CODE}</h3>
+            <form onSubmit={handleSubmitEdit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Code liaison</label>
+                <input
+                  type="text"
+                  value={editingLiaison.code}
+                  onChange={(e) => setEditingLiaison((p) => ({ ...p, code: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Types d&apos;installation *</label>
+                <div className="space-y-2">
+                  {installationTypes.map((type) => (
+                    <label key={type.value} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={editingLiaison.types_installation.includes(type.value)}
+                        onChange={() => toggleTypeInstallation(type.value, true)}
+                      />
+                      {type.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Matériels *</label>
+                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
+                  {materiels.map((m) => (
+                    <label key={m.code} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={editingLiaison.materiel_codes.includes(m.code)}
+                        onChange={() => toggleMateriel(m.code, true)}
+                      />
+                      <span className="font-mono text-xs">{m.code}</span> — {m.designation}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingLiaison(null);
+                  }}
+                  className="px-4 py-2 bg-gray-100 rounded-lg"
+                >
+                  Annuler
+                </button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -1302,6 +1935,7 @@ const ConfigManager = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [filterPrestation, setFilterPrestation] = useState('');
   const [filterTypeInstallation, setFilterTypeInstallation] = useState('');
   const [newConfig, setNewConfig] = useState({
@@ -1310,11 +1944,11 @@ const ConfigManager = () => {
     types_installation: [],
     materiel_codes: []
   });
+  const [editingLiaison, setEditingLiaison] = useState(null);
 
   const installationTypes = [
-    { value: 'saignee_encastre', label: 'Saignée / Encastré' },
+    { value: 'saignee_encastre', label: 'Encastré dans les murs' },
     { value: 'saillie_moulure', label: 'Saillie / Moulure' },
-    { value: 'cloison_creuse', label: 'Cloison creuse' },
     { value: 'alimentation_existante', label: 'Alimentation existante' },
     { value: 'wifi', label: 'Wifi' }
   ];
@@ -1338,7 +1972,7 @@ const ConfigManager = () => {
         ApiService.getAllMateriel()
       ]);
       setLiaisons(liaisonsData || []);
-      setPrestations(prestationsData || []);
+      setPrestations((prestationsData || []).filter((p) => !p.is_special));
       setMateriels(materielsData || []);
     } catch (err) {
       const message = err.message || 'Erreur lors du chargement des liaisons';
@@ -1377,6 +2011,48 @@ const ConfigManager = () => {
     });
   };
 
+  const toggleEditTypeInstallation = (value) => {
+    setEditingLiaison(prev => {
+      if (!prev) return prev;
+      const exists = prev.types_installation.includes(value);
+      return {
+        ...prev,
+        types_installation: exists
+          ? prev.types_installation.filter(t => t !== value)
+          : [...prev.types_installation, value]
+      };
+    });
+  };
+
+  const toggleEditMateriel = (code) => {
+    setEditingLiaison(prev => {
+      if (!prev) return prev;
+      const exists = prev.materiel_codes.includes(code);
+      return {
+        ...prev,
+        materiel_codes: exists
+          ? prev.materiel_codes.filter(c => c !== code)
+          : [...prev.materiel_codes, code]
+      };
+    });
+  };
+
+  const handleEditLiaison = (liaison) => {
+    setEditingLiaison({
+      id: liaison.id,
+      code: liaison.code || '',
+      prestation_code: liaison.prestation_code || '',
+      types_installation: [...(liaison.types_installation || [])],
+      materiel_codes: [...(liaison.materiel_codes || [])]
+    });
+    setShowEditModal(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingLiaison(null);
+  };
+
   const handleSubmitAdd = async (e) => {
     e.preventDefault();
     if (!newConfig.prestation_code) {
@@ -1410,6 +2086,37 @@ const ConfigManager = () => {
       await loadData();
     } catch (err) {
       alert(`Erreur lors de la création : ${err.message}`);
+    }
+  };
+
+  const handleSubmitEdit = async (e) => {
+    e.preventDefault();
+    if (!editingLiaison) return;
+    if (!editingLiaison.prestation_code) {
+      alert('Veuillez sélectionner une prestation');
+      return;
+    }
+    if (editingLiaison.types_installation.length === 0) {
+      alert('Veuillez sélectionner au moins un type d\'installation');
+      return;
+    }
+    if (editingLiaison.materiel_codes.length === 0) {
+      alert('Veuillez sélectionner au moins un matériel');
+      return;
+    }
+
+    try {
+      await ApiService.updateLiaison(editingLiaison.id, {
+        code: editingLiaison.code.trim() || undefined,
+        prestation_code: editingLiaison.prestation_code,
+        types_installation: editingLiaison.types_installation,
+        materiel_codes: editingLiaison.materiel_codes
+      });
+      handleCloseEditModal();
+      await loadData();
+      alert('Liaison mise à jour.');
+    } catch (err) {
+      alert(`Erreur lors de la mise à jour : ${err.message}`);
     }
   };
 
@@ -1530,15 +2237,26 @@ const ConfigManager = () => {
                     <td className="px-6 py-4 text-sm text-gray-600 whitespace-pre-line">{details.typesLabel || '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600 whitespace-pre-line">{details.materielsLabel || '—'}</td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleDelete(liaison.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Supprimer"
-                      >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleEditLiaison(liaison)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Modifier"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(liaison.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Supprimer"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1663,11 +2381,397 @@ const ConfigManager = () => {
           </div>
         </div>
       )}
+
+      {showEditModal && editingLiaison && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Modifier une liaison</h3>
+            <form onSubmit={handleSubmitEdit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Code liaison</label>
+                <input
+                  type="text"
+                  value={editingLiaison.code}
+                  onChange={(e) =>
+                    setEditingLiaison((prev) => ({ ...prev, code: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prestation *</label>
+                <select
+                  value={editingLiaison.prestation_code}
+                  onChange={(e) =>
+                    setEditingLiaison((prev) => ({ ...prev, prestation_code: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Sélectionnez une prestation</option>
+                  {prestations.map((presta) => (
+                    <option key={presta.id} value={presta.code}>
+                      {presta.code} - {presta.service_label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Types d&apos;installation *</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {installationTypes.map((type) => (
+                    <label
+                      key={type.value}
+                      className="flex items-center gap-2 text-sm border border-gray-200 rounded px-3 py-2 hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={editingLiaison.types_installation.includes(type.value)}
+                        onChange={() => toggleEditTypeInstallation(type.value)}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>{type.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Matériels associés *</label>
+                <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
+                  {materiels.map((materiel) => {
+                    const couleurInfo = COULEURS_MATERIEL[materiel.couleur || 'gris'];
+                    return (
+                      <label
+                        key={materiel.id}
+                        className="flex items-center gap-2 text-sm border border-gray-100 rounded px-2 py-2 hover:bg-gray-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editingLiaison.materiel_codes.includes(materiel.code)}
+                          onChange={() => toggleEditMateriel(materiel.code)}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <div
+                          className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0"
+                          style={{ backgroundColor: couleurInfo.hex }}
+                          title={couleurInfo.label}
+                        />
+                        <span className="text-gray-700">
+                          <span className="font-mono text-xs mr-2">{materiel.code}</span>
+                          {materiel.designation}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseEditModal}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 };
 
 // Composant de gestion des prestations
+
+const PRESTATION_PIECE_OPTIONS = [
+  { value: 'chambre', label: 'Chambre' },
+  { value: 'salon', label: 'Salon' },
+  { value: 'cuisine', label: 'Cuisine' },
+  { value: 'salle_de_bain', label: 'Salle de bain' },
+  { value: 'toilette', label: 'Toilette' },
+  { value: 'couloir', label: 'Couloir' },
+  { value: 'escalier', label: 'Escalier' },
+  { value: 'cellier', label: 'Cellier' },
+  { value: 'cave', label: 'Cave' },
+  { value: 'garage', label: 'Garage' },
+  { value: 'grenier', label: 'Grenier' },
+  { value: 'jardin', label: 'Jardin' },
+  { value: 'terrasse', label: 'Terrasse' },
+  { value: 'veranda', label: 'Véranda' },
+  { value: 'securite', label: 'Sécurité' },
+  { value: 'portail', label: 'Portail / Volet' }
+];
+
+const WIZARD_CATEGORY_ADMIN_LABELS = {
+  eclairage: 'Éclairage',
+  prises: 'Prise',
+  ligne_speciale: 'Ligne spéciale',
+  securite: 'Sécurité',
+  portail: 'Portail / Volet roulant'
+};
+
+const WIZARD_OPTIONS_BY_CATEGORIE = {
+  installation: ['eclairage', 'prises', 'ligne_speciale'],
+  domotique: ['eclairage', 'prises', 'ligne_speciale'],
+  securite: ['securite'],
+  portail: ['portail']
+};
+
+const getWizardOptionsForCategorie = (categorie) =>
+  WIZARD_OPTIONS_BY_CATEGORIE[categorie] || WIZARD_OPTIONS_BY_CATEGORIE.installation;
+
+const defaultWizardCategory = (categorie, current) => {
+  if (categorie === 'securite') return 'securite';
+  if (categorie === 'portail') return 'portail';
+  const allowed = getWizardOptionsForCategorie(categorie);
+  if (current && allowed.includes(current)) return current;
+  return 'ligne_speciale';
+};
+
+const prestationItemToForm = (item) => {
+  if (item.piece === 'commun') {
+    return {
+      id: item.id,
+      categorie: item.categorie || '',
+      code: item.code || '',
+      type_prestation: 'commun',
+      piece_unique: '',
+      pieces: [],
+      service_value: item.service_value || '',
+      service_label: item.service_label || '',
+      prix_ht: item.prix_ht ?? 0,
+      wizard_category: item.wizard_category || defaultWizardCategory(item.categorie, null)
+    };
+  }
+  if (item.piece === 'selection') {
+    return {
+      id: item.id,
+      categorie: item.categorie || '',
+      code: item.code || '',
+      type_prestation: 'selection',
+      piece_unique: '',
+      pieces: (item.pieces_applicables || '')
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean),
+      service_value: item.service_value || '',
+      service_label: item.service_label || '',
+      prix_ht: item.prix_ht ?? 0,
+      wizard_category: item.wizard_category || defaultWizardCategory(item.categorie, null)
+    };
+  }
+  return {
+    id: item.id,
+    categorie: item.categorie || '',
+    code: item.code || '',
+    type_prestation: 'piece_unique',
+    piece_unique: item.piece || '',
+    pieces: [],
+    service_value: item.service_value || '',
+    service_label: item.service_label || '',
+    prix_ht: item.prix_ht ?? 0,
+    wizard_category: item.wizard_category || defaultWizardCategory(item.categorie, null)
+  };
+};
+
+const buildPrestationPayloadFromForm = (formItem) => {
+  if (!formItem.service_value?.trim() || !formItem.service_label?.trim()) {
+    throw new Error('Veuillez remplir tous les champs obligatoires');
+  }
+
+  const prestationData = {
+    categorie: formItem.categorie,
+    service_value: formItem.service_value.trim(),
+    service_label: formItem.service_label.trim(),
+    prix_ht: parseFloat(formItem.prix_ht) || 0,
+    wizard_category: formItem.wizard_category || defaultWizardCategory(formItem.categorie, null)
+  };
+
+  if (formItem.code?.trim()) {
+    prestationData.code = formItem.code.trim();
+  }
+
+  if (formItem.type_prestation === 'piece_unique') {
+    if (!formItem.piece_unique) {
+      throw new Error('Veuillez sélectionner une pièce');
+    }
+    prestationData.piece = formItem.piece_unique;
+    prestationData.pieces_applicables = null;
+  } else if (formItem.type_prestation === 'commun') {
+    prestationData.piece = 'commun';
+    prestationData.pieces_applicables = null;
+  } else if (formItem.type_prestation === 'selection') {
+    if (!formItem.pieces?.length) {
+      throw new Error('Veuillez sélectionner au moins une pièce');
+    }
+    prestationData.piece = 'selection';
+    prestationData.pieces_applicables = formItem.pieces.join(',');
+  }
+
+  return prestationData;
+};
+
+const PrestationFormFields = ({
+  formItem,
+  onChange,
+  onPieceToggle,
+  categories,
+  radioName = 'type_prestation'
+}) => (
+  <div className="space-y-3">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+      <select
+        value={formItem.categorie}
+        onChange={(e) => onChange('categorie', e.target.value)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        required
+      >
+        {categories.map((cat) => (
+          <option key={cat} value={cat}>
+            {cat}
+          </option>
+        ))}
+      </select>
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Catégorie wizard <span className="text-gray-500 text-xs">(affichage étape 3 devis)</span>
+      </label>
+      <select
+        value={formItem.wizard_category || defaultWizardCategory(formItem.categorie, null)}
+        onChange={(e) => onChange('wizard_category', e.target.value)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        required
+      >
+        {getWizardOptionsForCategorie(formItem.categorie).map((value) => (
+          <option key={value} value={value}>
+            {WIZARD_CATEGORY_ADMIN_LABELS[value]}
+          </option>
+        ))}
+      </select>
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Code prestation <span className="text-gray-500 text-xs">(ex: Pecl001)</span>
+      </label>
+      <input
+        type="text"
+        value={formItem.code}
+        onChange={(e) => onChange('code', e.target.value)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+        placeholder="Pecl001"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Type de prestation *</label>
+      <div className="space-y-3">
+        {[
+          { value: 'piece_unique', label: 'Pièce unique' },
+          { value: 'commun', label: 'Commun (toutes les pièces)' },
+          { value: 'selection', label: 'Sélection (plusieurs pièces)' }
+        ].map(({ value, label }) => (
+          <label key={value} className="flex items-center space-x-2">
+            <input
+              type="radio"
+              name={radioName}
+              value={value}
+              checked={formItem.type_prestation === value}
+              onChange={(e) => onChange('type_prestation', e.target.value)}
+              className="text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm">{label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+
+    {formItem.type_prestation === 'piece_unique' && (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Pièce *</label>
+        <select
+          value={formItem.piece_unique}
+          onChange={(e) => onChange('piece_unique', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        >
+          <option value="">Sélectionnez une pièce</option>
+          {PRESTATION_PIECE_OPTIONS.map((piece) => (
+            <option key={piece.value} value={piece.value}>
+              {piece.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    )}
+
+    {formItem.type_prestation === 'selection' && (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Pièces sélectionnées *</label>
+        <div className="grid grid-cols-3 gap-1 max-h-24 overflow-y-auto border border-gray-300 rounded-lg p-2">
+          {PRESTATION_PIECE_OPTIONS.map((piece) => (
+            <label key={piece.value} className="flex items-center space-x-1 text-xs">
+              <input
+                type="checkbox"
+                checked={formItem.pieces.includes(piece.value)}
+                onChange={() => onPieceToggle(piece.value)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>{piece.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Libellé *</label>
+        <input
+          type="text"
+          value={formItem.service_label}
+          onChange={(e) => onChange('service_label', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Nom affiché du service"
+          required
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Service (value) *</label>
+          <input
+            type="text"
+            value={formItem.service_value}
+            onChange={(e) => onChange('service_value', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="eclairage"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Prix HT (€) *</label>
+          <input
+            type="number"
+            step="0.01"
+            value={formItem.prix_ht}
+            onChange={(e) => onChange('prix_ht', parseFloat(e.target.value) || 0)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="50.00"
+            required
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const PrestationManager = () => {
   const prestationApi = useMemo(() => ({
     getAll: ApiService.getAllPrestations,
@@ -1692,34 +2796,87 @@ const PrestationManager = () => {
   } = useDataManagement(prestationApi, 'domotique');
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPrestation, setEditingPrestation] = useState(null);
   const [newItem, setNewItem] = useState({
     categorie: '',
-    code: '', // NOUVEAU: Code de la prestation
-    type_prestation: 'piece_unique', // Nouveau: type de prestation
-    piece_unique: '', // Pour pièce unique
-    pieces: [], // Pour sélection multiple
+    code: '',
+    type_prestation: 'piece_unique',
+    piece_unique: '',
+    pieces: [],
     service_value: '',
     service_label: '',
-    prix_ht: 0
+    prix_ht: 0,
+    wizard_category: 'ligne_speciale'
   });
 
   const handleUpdate = (id, field, value) => {
     baseHandleUpdate(id, field, value, ['prix_ht']);
   };
 
+  const handleEditPrestation = (item) => {
+    setEditingPrestation(prestationItemToForm(item));
+    setShowEditModal(true);
+  };
+
+  const handleCloseEditPrestationModal = () => {
+    setShowEditModal(false);
+    setEditingPrestation(null);
+  };
+
+  const handleEditPrestationChange = (field, value) => {
+    setEditingPrestation((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, [field]: value };
+      if (field === 'categorie') {
+        next.wizard_category = defaultWizardCategory(value, prev.wizard_category);
+      }
+      return next;
+    });
+  };
+
+  const handleEditPieceToggle = (piece) => {
+    setEditingPrestation((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        pieces: prev.pieces.includes(piece)
+          ? prev.pieces.filter((p) => p !== piece)
+          : [...prev.pieces, piece]
+      };
+    });
+  };
+
+  const handleSubmitEditPrestation = async (e) => {
+    e.preventDefault();
+    if (!editingPrestation) return;
+    try {
+      const prestationData = buildPrestationPayloadFromForm(editingPrestation);
+      await ApiService.updatePrestation(editingPrestation.id, prestationData);
+      handleCloseEditPrestationModal();
+      await loadPrestations();
+      alert('Prestation mise à jour.');
+    } catch (err) {
+      alert(err?.message || 'Erreur lors de la mise à jour');
+    }
+  };
+
   if (loading) return <div className="text-center py-8">Chargement...</div>;
   if (error) return <div className="text-center py-8 text-red-600">Erreur : {error}</div>;
+
+  const visiblePrestations = prestationsList.filter((item) => !item.is_special);
 
   const handleOpenAddModal = () => {
     setNewItem({
       categorie: selectedCategory,
-      code: '', // NOUVEAU
+      code: '',
       type_prestation: 'piece_unique',
       piece_unique: '',
       pieces: [],
       service_value: '',
       service_label: '',
-      prix_ht: 0
+      prix_ht: 0,
+      wizard_category: defaultWizardCategory(selectedCategory, null)
     });
     setShowAddModal(true);
   };
@@ -1728,21 +2885,25 @@ const PrestationManager = () => {
     setShowAddModal(false);
     setNewItem({
       categorie: '',
-      code: '', // NOUVEAU
+      code: '',
       type_prestation: 'piece_unique',
       piece_unique: '',
       pieces: [],
       service_value: '',
       service_label: '',
-      prix_ht: 0
+      prix_ht: 0,
+      wizard_category: 'ligne_speciale'
     });
   };
 
   const handleNewItemChange = (field, value) => {
-    setNewItem(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setNewItem((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === 'categorie') {
+        next.wizard_category = defaultWizardCategory(value, prev.wizard_category);
+      }
+      return next;
+    });
   };
 
   const handlePieceToggle = (piece) => {
@@ -1757,45 +2918,12 @@ const PrestationManager = () => {
   const handleSubmitAdd = async (e) => {
     e.preventDefault();
     try {
-      if (!newItem.service_value || !newItem.service_label) {
-        alert('Veuillez remplir tous les champs obligatoires');
-        return;
-      }
-
-      let prestationData = { ...newItem };
-
-      // Gérer les 3 types de prestations
-      if (newItem.type_prestation === 'piece_unique') {
-        if (!newItem.piece_unique) {
-          alert('Veuillez sélectionner une pièce');
-          return;
-        }
-        prestationData.piece = newItem.piece_unique;
-        prestationData.pieces_applicables = null;
-      } else if (newItem.type_prestation === 'commun') {
-        prestationData.piece = 'commun';
-        prestationData.pieces_applicables = null;
-      } else if (newItem.type_prestation === 'selection') {
-        if (newItem.pieces.length === 0) {
-          alert('Veuillez sélectionner au moins une pièce');
-          return;
-        }
-        prestationData.piece = 'selection';
-        prestationData.pieces_applicables = newItem.pieces.join(',');
-      }
-      
-      // N'envoyer le code que s'il est renseigné (sinon génération automatique côté backend)
-      if (!prestationData.code || (typeof prestationData.code === 'string' && !prestationData.code.trim())) {
-        delete prestationData.code;
-      } else if (typeof prestationData.code === 'string') {
-        prestationData.code = prestationData.code.trim();
-      }
-      
+      const prestationData = buildPrestationPayloadFromForm(newItem);
       await ApiService.createPrestation(prestationData);
       await loadPrestations();
       handleCloseAddModal();
     } catch (err) {
-      alert(`Erreur lors de l'ajout : ${err.message}`);
+      alert(err?.message || "Erreur lors de l'ajout");
     }
   };
 
@@ -1841,7 +2969,7 @@ const PrestationManager = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {prestationsList.map((item) => (
+            {visiblePrestations.map((item) => (
               <tr key={item.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4">
                   <input
@@ -1910,15 +3038,26 @@ const PrestationManager = () => {
                   />
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button 
-                    onClick={() => handleDelete(item.id)}
-                    className="text-red-600 hover:text-red-900"
-                    title="Supprimer"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => handleEditPrestation(item)}
+                      className="text-blue-600 hover:text-blue-900"
+                      title="Modifier"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(item.id)}
+                      className="text-red-600 hover:text-red-900"
+                      title="Supprimer"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1940,179 +3079,12 @@ const PrestationManager = () => {
         <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Ajouter une prestation</h3>
           <form onSubmit={handleSubmitAdd}>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
-                <select
-                  value={newItem.categorie}
-                  onChange={(e) => handleNewItemChange('categorie', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Code prestation <span className="text-gray-500 text-xs">(ex: Pecl001)</span>
-                </label>
-                <input
-                  type="text"
-                  value={newItem.code}
-                  onChange={(e) => handleNewItemChange('code', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                  placeholder="Pecl001 (laissé vide pour génération auto)"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Si laissé vide, un code sera généré automatiquement
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Type de prestation *</label>
-                <div className="space-y-3">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      name="type_prestation"
-                      value="piece_unique"
-                      checked={newItem.type_prestation === 'piece_unique'}
-                      onChange={(e) => handleNewItemChange('type_prestation', e.target.value)}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm">Pièce unique</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      name="type_prestation"
-                      value="commun"
-                      checked={newItem.type_prestation === 'commun'}
-                      onChange={(e) => handleNewItemChange('type_prestation', e.target.value)}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm">Commun (toutes les pièces)</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      name="type_prestation"
-                      value="selection"
-                      checked={newItem.type_prestation === 'selection'}
-                      onChange={(e) => handleNewItemChange('type_prestation', e.target.value)}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm">Sélection (plusieurs pièces)</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Pièce unique */}
-              {newItem.type_prestation === 'piece_unique' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Pièce *</label>
-                  <select
-                    value={newItem.piece_unique}
-                    onChange={(e) => handleNewItemChange('piece_unique', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Sélectionnez une pièce</option>
-                    {[
-                      { value: 'chambre', label: 'Chambre' },
-                      { value: 'salon', label: 'Salon' },
-                      { value: 'cuisine', label: 'Cuisine' },
-                      { value: 'salle_de_bain', label: 'Salle de bain' },
-                      { value: 'toilette', label: 'Toilette' },
-                      { value: 'couloir', label: 'Couloir' },
-                      { value: 'escalier', label: 'Escalier' },
-                      { value: 'cellier', label: 'Cellier' },
-                      { value: 'cave', label: 'Cave' },
-                      { value: 'garage', label: 'Garage' },
-                      { value: 'grenier', label: 'Grenier' },
-                      { value: 'exterieur', label: 'Extérieur' }
-                    ].map(piece => (
-                      <option key={piece.value} value={piece.value}>{piece.label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Sélection multiple */}
-              {newItem.type_prestation === 'selection' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Pièces sélectionnées *</label>
-                  <div className="grid grid-cols-3 gap-1 max-h-24 overflow-y-auto border border-gray-300 rounded-lg p-2">
-                    {[
-                      { value: 'chambre', label: 'Chambre' },
-                      { value: 'salon', label: 'Salon' },
-                      { value: 'cuisine', label: 'Cuisine' },
-                      { value: 'salle_de_bain', label: 'Salle de bain' },
-                      { value: 'toilette', label: 'Toilette' },
-                      { value: 'couloir', label: 'Couloir' },
-                      { value: 'escalier', label: 'Escalier' },
-                      { value: 'cellier', label: 'Cellier' },
-                      { value: 'cave', label: 'Cave' },
-                      { value: 'garage', label: 'Garage' },
-                      { value: 'grenier', label: 'Grenier' },
-                      { value: 'exterieur', label: 'Extérieur' }
-                    ].map(piece => (
-                      <label key={piece.value} className="flex items-center space-x-1 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={newItem.pieces.includes(piece.value)}
-                          onChange={() => handlePieceToggle(piece.value)}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span>{piece.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Sélectionnez les pièces où cette prestation s'applique.
-                  </p>
-                </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Libellé *</label>
-                  <input
-                    type="text"
-                    value={newItem.service_label}
-                    onChange={(e) => handleNewItemChange('service_label', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nom affiché du service"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Service (value) *</label>
-                    <input
-                      type="text"
-                      value={newItem.service_value}
-                      onChange={(e) => handleNewItemChange('service_value', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="eclairage"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Prix HT (€) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newItem.prix_ht}
-                      onChange={(e) => handleNewItemChange('prix_ht', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="50.00"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+            <PrestationFormFields
+              formItem={newItem}
+              onChange={handleNewItemChange}
+              onPieceToggle={handlePieceToggle}
+              categories={categories}
+            />
             <div className="flex justify-end gap-3 mt-6">
               <button
                 type="button"
@@ -2126,6 +3098,38 @@ const PrestationManager = () => {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Valider
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
+    {showEditModal && editingPrestation && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Modifier une prestation</h3>
+          <form onSubmit={handleSubmitEditPrestation}>
+            <PrestationFormFields
+              formItem={editingPrestation}
+              onChange={handleEditPrestationChange}
+              onPieceToggle={handleEditPieceToggle}
+              categories={categories}
+              radioName="type_prestation_edit"
+            />
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={handleCloseEditPrestationModal}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Enregistrer
               </button>
             </div>
           </form>

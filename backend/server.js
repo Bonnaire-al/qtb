@@ -25,17 +25,34 @@ const createAvisTable = require('./migrations/create-avis-table');
 const addGoogleAccountToAvis = require('./migrations/add-google-account-to-avis');
 const createRapidDevisConfig = require('./migrations/20260130_create-rapid-devis-config');
 const createTableauConfig = require('./migrations/create-tableau-config');
+const migrateFormUpdates = require('./migrations/20260612-form-updates');
+const migrateTableauMoDual = require('./migrations/20260613-tableau-mo-dual');
+const migrateTableauMoSync = require('./migrations/20260614-sync-tableau-mo-columns');
+const migrateSpecialPrestationInterrupteur = require('./migrations/20260615-special-prestation-interrupteur');
+const migrateWizardCategory = require('./migrations/20260616-wizard-category');
+const { ensureSpecialInterrupteurPrestation } = require('./utils/ensureSpecialPrestation');
 
-// Migrations au démarrage
-createAvisTable()
-  .then(() => addGoogleAccountToAvis())
-  .then(() => createRapidDevisConfig())
-  .then(() => createTableauConfig())
-  .catch((err) => console.warn('Migrations démarrage:', err.message));
+async function runStartupMigrations() {
+  await createAvisTable();
+  await addGoogleAccountToAvis();
+  await createRapidDevisConfig();
+  await createTableauConfig();
+  await migrateFormUpdates();
+  await migrateTableauMoDual();
+  await migrateTableauMoSync();
+  await migrateSpecialPrestationInterrupteur();
+  await migrateWizardCategory();
+  await ensureSpecialInterrupteurPrestation();
+  console.log('✅ Migrations démarrage terminées');
+}
 
-// Route test
+// Route test + healthcheck Railway
 app.get('/', (req, res) => {
   res.json({ message: 'API QTBE - Backend Railway OK' });
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 
 // Routes API
@@ -48,7 +65,23 @@ app.use('/api/tableau', tableauRoutes);
 app.use('/api/rapid', rapidRoutes);
 app.use('/api/avis', avisRoutes);
 
-// Start serveur
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur démarré sur le port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await runStartupMigrations();
+  } catch (err) {
+    console.error('❌ Migrations démarrage:', err.message);
+    console.error(err.stack);
+    try {
+      await ensureSpecialInterrupteurPrestation();
+      console.log('✅ Prestation spéciale PINT001 créée (rattrapage après erreur migration)');
+    } catch (ensureErr) {
+      console.error('❌ Rattrapage PINT001 impossible:', ensureErr.message);
+    }
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Serveur démarré sur le port ${PORT} (0.0.0.0)`);
+  });
+}
+
+startServer();

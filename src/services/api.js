@@ -122,7 +122,47 @@ class ApiService {
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error('Erreur lors de la mise à jour de la prestation');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Erreur lors de la mise à jour de la prestation');
+    }
+    return response.json();
+  }
+
+  static async getSpecialInterrupteurPrestation() {
+    let response;
+    try {
+      response = await fetch(`${API_BASE_URL}/prestations/special/interrupteur-eclairage`, {
+        headers: getAuthHeaders()
+      });
+    } catch (networkErr) {
+      throw new Error(
+        'Impossible de joindre le serveur API. Vérifiez que le backend tourne sur le port 5000.'
+      );
+    }
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 404) {
+        throw new Error(
+          errorData.error
+            || 'Prestation spéciale introuvable. Redémarrez le backend pour appliquer la migration.'
+        );
+      }
+      throw new Error(errorData.error || 'Erreur lors de la récupération de la prestation spéciale');
+    }
+    return response.json();
+  }
+
+  static async updateSpecialInterrupteurPrestation(prix_ht) {
+    const response = await fetch(`${API_BASE_URL}/prestations/special/interrupteur-eclairage`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ prix_ht })
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Erreur lors de la mise à jour de la prestation spéciale');
+    }
     return response.json();
   }
 

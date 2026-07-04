@@ -1,6 +1,13 @@
 const db = require('../config/database');
 const LiaisonModel = require('./Liaison-model');
 const MaterielModel = require('./M-model');
+const { SPECIAL_INTERRUPTEUR_ECLAIRAGE } = require('../utils/specialPrestation');
+const { ensureSpecialInterrupteurPrestation } = require('../utils/ensureSpecialPrestation');
+const {
+  INSTALLATION_PIECE_VALUES,
+  PIECES_LABELS,
+  isExcludedPiece
+} = require('../utils/pieceConstants');
 
 class PrestationModel {
   // Récupérer toutes les prestations
@@ -38,6 +45,48 @@ class PrestationModel {
         if (err) reject(err);
         else resolve(row || null);
       });
+    });
+  }
+
+  static getById(id) {
+    return new Promise((resolve, reject) => {
+      db.get('SELECT * FROM prestations WHERE id = ?', [id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || null);
+      });
+    });
+  }
+
+  static getSpecialInterrupteurEclairage() {
+    return this.getByCode(SPECIAL_INTERRUPTEUR_ECLAIRAGE.code);
+  }
+
+  static ensureSpecialInterrupteurEclairage() {
+    return ensureSpecialInterrupteurPrestation();
+  }
+
+  static updateSpecialInterrupteurPrix(prix_ht) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const prestation = await this.getSpecialInterrupteurEclairage();
+        if (!prestation) {
+          return reject(new Error('Prestation spéciale interrupteur introuvable'));
+        }
+        const finalPrix = prix_ht !== undefined ? prix_ht : 0;
+        db.run(
+          'UPDATE prestations SET prix_ht = ? WHERE id = ?',
+          [finalPrix, prestation.id],
+          function onUpdate(err) {
+            if (err) return reject(err);
+            db.get('SELECT * FROM prestations WHERE id = ?', [prestation.id], (selErr, row) => {
+              if (selErr) reject(selErr);
+              else resolve(row);
+            });
+          }
+        );
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
@@ -172,7 +221,7 @@ class PrestationModel {
 
   // Ajouter une prestation
   static async create(data) {
-    const { code, categorie, piece, service_value, service_label, prix_ht, pieces_applicables } = data;
+    const { code, categorie, piece, service_value, service_label, prix_ht, pieces_applicables, wizard_category } = data;
     
     // Si code non fourni, générer un code automatique unique
     let finalCode = (code || '').trim();
@@ -190,8 +239,8 @@ class PrestationModel {
     }
     
     return new Promise((resolve, reject) => {
-      const query = 'INSERT INTO prestations (code, categorie, piece, service_value, service_label, prix_ht, pieces_applicables) VALUES (?, ?, ?, ?, ?, ?, ?)';
-      db.run(query, [finalCode, categorie, piece, service_value, service_label, prix_ht || 0, pieces_applicables || null], function(err) {
+      const query = 'INSERT INTO prestations (code, categorie, piece, service_value, service_label, prix_ht, pieces_applicables, wizard_category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+      db.run(query, [finalCode, categorie, piece, service_value, service_label, prix_ht || 0, pieces_applicables || null, wizard_category || null], function(err) {
         if (err) {
           // Si erreur de duplication de code, suggérer un nouveau code
           if (err.message.includes('UNIQUE constraint failed')) {
@@ -211,8 +260,25 @@ class PrestationModel {
 
   // Mettre à jour une prestation
   static update(id, data) {
-    return new Promise((resolve, reject) => {
-      const { code, categorie, piece, service_value, service_label, prix_ht, pieces_applicables } = data;
+    return new Promise(async (resolve, reject) => {
+      try {
+        const existing = await this.getById(id);
+        if (!existing) {
+          return reject(new Error('Prestation non trouvée'));
+        }
+        if (existing.is_special === 1) {
+          const { prix_ht } = data;
+          if (prix_ht === undefined) {
+            return reject(new Error('Seul le prix HT est modifiable pour une prestation spéciale'));
+          }
+          const row = await this.updateSpecialInterrupteurPrix(prix_ht);
+          return resolve(row);
+        }
+      } catch (guardErr) {
+        return reject(guardErr);
+      }
+
+      const { code, categorie, piece, service_value, service_label, prix_ht, pieces_applicables, wizard_category } = data;
       
       console.log(`📝 UPDATE Prestation #${id}:`, {
         code,
@@ -260,6 +326,10 @@ class PrestationModel {
         fields.push('pieces_applicables = ?');
         values.push(pieces_applicables || null);
       }
+      if (wizard_category !== undefined) {
+        fields.push('wizard_category = ?');
+        values.push(wizard_category || null);
+      }
       
       if (fields.length === 0) {
         return reject(new Error('Aucun champ à mettre à jour'));
@@ -296,7 +366,16 @@ class PrestationModel {
 
   // Supprimer une prestation
   static delete(id) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const existing = await this.getById(id);
+        if (existing?.is_special === 1) {
+          return reject(new Error('Impossible de supprimer une prestation spéciale système'));
+        }
+      } catch (guardErr) {
+        return reject(guardErr);
+      }
+
       db.run('DELETE FROM prestations WHERE id = ?', [id], function(err) {
         if (err) reject(err);
         else resolve({ deleted: this.changes });
@@ -335,15 +414,23 @@ class PrestationModel {
       prestations = (all || []).filter(p => (p.categorie || '').toString().trim().toLowerCase() === typeLower);
     }
 
+    const EXCLUDED_SERVICE_VALUES = ['interrupteurs', 'interrupteur_double', SPECIAL_INTERRUPTEUR_ECLAIRAGE.service_value];
+    prestations = prestations.filter(
+      (p) => !EXCLUDED_SERVICE_VALUES.includes(p.service_value) && p.is_special !== 1
+    );
+
       // Organiser les prestations par pièce
       const servicesByRoom = {};
       const piecesSet = new Set();
       
       prestations.forEach(prestation => {
+        if (prestation.piece !== 'commun' && prestation.piece !== 'selection' && isExcludedPiece(prestation.piece)) {
+          return;
+        }
         // Gérer les 3 types de prestations
         if (prestation.piece === 'commun') {
           // Commun : ajouter à toutes les pièces
-          const allPieces = ['chambre', 'salon', 'cuisine', 'salle_de_bain', 'toilette', 'couloir', 'escalier', 'cellier', 'cave', 'garage', 'grenier', 'exterieur'];
+          const allPieces = INSTALLATION_PIECE_VALUES;
           allPieces.forEach(piece => {
             if (!servicesByRoom[piece]) {
               servicesByRoom[piece] = [];
@@ -351,7 +438,8 @@ class PrestationModel {
             servicesByRoom[piece].push({
               value: prestation.service_value,
               label: prestation.service_label,
-              prix_ht: prestation.prix_ht
+              prix_ht: prestation.prix_ht,
+              wizard_category: prestation.wizard_category || null
             });
             piecesSet.add(piece);
           });
@@ -360,13 +448,15 @@ class PrestationModel {
           const piecesApplicables = prestation.pieces_applicables.split(',');
           piecesApplicables.forEach(piece => {
             const trimmedPiece = piece.trim();
+            if (isExcludedPiece(trimmedPiece)) return;
             if (!servicesByRoom[trimmedPiece]) {
               servicesByRoom[trimmedPiece] = [];
             }
             servicesByRoom[trimmedPiece].push({
               value: prestation.service_value,
               label: prestation.service_label,
-              prix_ht: prestation.prix_ht
+              prix_ht: prestation.prix_ht,
+              wizard_category: prestation.wizard_category || null
             });
             piecesSet.add(trimmedPiece);
           });
@@ -374,7 +464,7 @@ class PrestationModel {
           // Pièce unique : ajouter à la pièce spécifique
           const room = prestation.piece || 'specific';
           
-          if (prestation.piece) {
+          if (prestation.piece && !isExcludedPiece(prestation.piece)) {
             piecesSet.add(prestation.piece);
           }
           
@@ -384,40 +474,23 @@ class PrestationModel {
           servicesByRoom[room].push({
             value: prestation.service_value,
             label: prestation.service_label,
-            prix_ht: prestation.prix_ht
+            prix_ht: prestation.prix_ht,
+            wizard_category: prestation.wizard_category || null
           });
         }
       });
 
       // Mapper les pièces en format {value, label}
-      const piecesLabels = {
-        chambre: 'Chambre',
-        salon: 'Salon',
-        cuisine: 'Cuisine',
-        salle_de_bain: 'Salle de bain',
-        toilette: 'Toilette',
-        couloir: 'Couloir',
-        escalier: 'Escalier',
-        cellier: 'Cellier',
-        cave: 'Cave',
-        garage: 'Garage',
-        grenier: 'Grenier',
-        exterieur: 'Extérieur',
-        portail: 'Portail électrique',
-        volet: 'Volet roulant'
-      };
+      const piecesLabels = PIECES_LABELS;
 
       // Pour domotique et installation, retourner TOUTES les pièces possibles
       let pieces = [];
       if (serviceType === 'domotique' || serviceType === 'installation') {
-        // Toutes les pièces pour domotique et installation
-        pieces = ['chambre', 'salon', 'cuisine', 'salle_de_bain', 'toilette', 'couloir', 'escalier', 'cellier', 'cave', 'garage', 'grenier', 'exterieur']
-          .map(p => ({ value: p, label: piecesLabels[p] }));
+        pieces = INSTALLATION_PIECE_VALUES.map((p) => ({ value: p, label: piecesLabels[p] }));
       } else {
-        // Pour portail et sécurité, utiliser les pièces de la BD
         pieces = Array.from(piecesSet)
-          .filter(p => p !== 'commun')
-          .map(p => ({ value: p, label: piecesLabels[p] || p }));
+          .filter((p) => p !== 'commun' && !isExcludedPiece(p))
+          .map((p) => ({ value: p, label: piecesLabels[p] || p }));
       }
 
     return {

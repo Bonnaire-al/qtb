@@ -4,9 +4,32 @@ const PrestationModel = require('../models/P-model');
 const PrixCalculs = require('../utils/prixCalculs');
 const CalculMateriel = require('../utils/calculMateriel');
 const RapidConfigModel = require('../models/RapidConfig-model');
+const TableauConfigModel = require('../models/TableauConfig-model');
+const TableauCalcul = require('../utils/tableauCalcul');
+const { expandDevisWithSpecialInterrupteur } = require('../utils/specialPrestation');
 const { calculateDiscount } = require('../utils/pdfCalculs');
 
 class PDFController {
+  static async refreshTableauMainOeuvre(devisItems) {
+    const rates = await TableauConfigModel.getMainOeuvreRates();
+    return TableauCalcul.refreshTableauItemsInDevis(devisItems, {
+      mainOeuvrePoseParRangee: rates.pose,
+      mainOeuvreChangementParRangee: rates.changement
+    });
+  }
+
+  static async expandDevisForCalculation(devisItems) {
+    let specialPrestation = await PrestationModel.getSpecialInterrupteurEclairage();
+    if (!specialPrestation) {
+      try {
+        specialPrestation = await PrestationModel.ensureSpecialInterrupteurEclairage();
+      } catch (e) {
+        console.warn('⚠️ Prestation spéciale interrupteur non disponible:', e.message);
+      }
+    }
+    return expandDevisWithSpecialInterrupteur(devisItems, specialPrestation || undefined);
+  }
+
   // Calculer les prix pour tous les services du devis
   static async calculateDevisItemsPrices(devisItems) {
     const itemsWithPrices = await Promise.all(
@@ -29,11 +52,15 @@ class PDFController {
           item.services.map(async (service) => {
             try {
               // Trouver les métadonnées du service pour récupérer le prix
-              const prixData = await this.findServicePrixData(
+              let prixData = await this.findServicePrixData(
                 item.serviceType,
                 item.roomValue,
                 service.label
               );
+
+              if (!prixData && service.code) {
+                prixData = await PrestationModel.getByCode(service.code);
+              }
               
               if (!prixData) {
                 console.warn(`Prix non trouvé pour: ${service.label}`);
@@ -300,8 +327,9 @@ class PDFController {
       if (!name) return res.status(400).json({ error: 'Nom du client requis.' });
       if (!email) return res.status(400).json({ error: 'Email du client requis.' });
 
-      // ✅ CALCULER LES PRIX ICI (backend) avant de générer le PDF
-      const devisItemsWithPrices = await PDFController.calculateDevisItemsPrices(devisItems);
+      const devisItemsRefreshed = await PDFController.refreshTableauMainOeuvre(devisItems);
+      const devisItemsExpanded = await PDFController.expandDevisForCalculation(devisItemsRefreshed);
+      const devisItemsWithPrices = await PDFController.calculateDevisItemsPrices(devisItemsExpanded);
       
       // ✅ NOUVEAU : Calculer les matériels via prestation_materiel_config selon les quantités
       try {
@@ -365,8 +393,9 @@ class PDFController {
       if (!name) return res.status(400).json({ error: 'Nom du client requis.' });
       if (!email) return res.status(400).json({ error: 'Email du client requis.' });
 
-      // ✅ CALCULER LES PRIX ICI (backend) avant de générer le PDF
-      const devisItemsWithPrices = await PDFController.calculateDevisItemsPrices(devisItems);
+      const devisItemsRefreshed = await PDFController.refreshTableauMainOeuvre(devisItems);
+      const devisItemsExpanded = await PDFController.expandDevisForCalculation(devisItemsRefreshed);
+      const devisItemsWithPrices = await PDFController.calculateDevisItemsPrices(devisItemsExpanded);
       
       // ✅ NOUVEAU : Calculer les matériels via prestation_materiel_config selon les quantités
       try {

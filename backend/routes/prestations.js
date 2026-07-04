@@ -7,6 +7,12 @@ const PrestationController = require('../controllers/P-controller');
 router.get('/', PrestationController.getAll);
 
 // Routes spécifiques AVANT les routes génériques
+// GET /api/prestations/special/interrupteur-eclairage — prestation système interrupteur
+router.get('/special/interrupteur-eclairage', PrestationController.getSpecialInterrupteur);
+
+// PUT /api/prestations/special/interrupteur-eclairage — main d'œuvre (prix HT) uniquement
+router.put('/special/interrupteur-eclairage', requireAuth, PrestationController.updateSpecialInterrupteur);
+
 // GET /api/prestations/structure/:serviceType - Structure pour formulaire
 router.get('/structure/:serviceType', PrestationController.getFormStructure);
 

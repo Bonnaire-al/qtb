@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { TableauFieldLabel } from './TableauFieldTooltip';
 
 const TableauChangeModal = ({
   showModal,
@@ -11,53 +12,17 @@ const TableauChangeModal = ({
   animState = 'in', // 'in' | 'out'
   onAddAnotherTableau // Nouvelle prop pour ajouter un autre tableau
 }) => {
-  const [hoveredTooltip, setHoveredTooltip] = useState(null);
-
   if (!showModal) return null;
 
-  const tooltips = {
-    nombrePhase: 'Pour savoir regarder la largeur de votre disjoncteur d\'abonné (généralement à côté du linky ou tableau principal) 7cm=monophasé; 12cm triphasé',
-    appareilTriphase: 'Nombre d\'appareils triphasés dans votre installation (piscine, pompe de relevage, ballon d\'eau chaude..)',
-    nombreRangees: 'Nombre de rangées nécessaires pour votre tableau électrique (1 à 4)',
-    nombreDisjoncteurs: 'Nombre total de disjoncteurs ou porte-fusibles à remplacer',
-    lignesSpeciales: 'Sélectionnez les lignes spéciales nécessaires pour votre installation',
-    radiateurElectrique: 'Nombre de radiateurs électriques dans votre installation'
-  };
-
-  const TooltipIcon = ({ field }) => (
-    <div 
-      className="relative inline-block ml-2"
-      onMouseEnter={() => setHoveredTooltip(field)}
-      onMouseLeave={() => setHoveredTooltip(null)}
-    >
-      <svg 
-        className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" 
-        fill="none" 
-        stroke="currentColor" 
-        viewBox="0 0 24 24"
-      >
-        <path 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-          strokeWidth={2} 
-          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-        />
-      </svg>
-      {hoveredTooltip === field && (
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-2 bg-gray-800 text-white text-xs rounded-lg z-50">
-          {tooltips[field]}
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
-            <div className="border-4 border-transparent border-t-gray-800"></div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   const isFormValid = () => {
+    const triphaseOk =
+      questionnaire.nombrePhase === 'triphaser'
+        ? questionnaire.appareilTriphase !== ''
+        : true;
+
     return (
       questionnaire.nombrePhase &&
-      questionnaire.appareilTriphase !== '' &&
+      triphaseOk &&
       questionnaire.nombreRangees &&
       questionnaire.nombreDisjoncteurs !== ''
     );
@@ -85,10 +50,7 @@ const TableauChangeModal = ({
         <div className="space-y-6">
           {/* 1. Nombre de phase */}
           <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-              Nombre de phase ?
-              <TooltipIcon field="nombrePhase" />
-            </label>
+            <TableauFieldLabel field="nombrePhase">Nombre de phase ?</TableauFieldLabel>
             <div className="flex gap-4">
               <label className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer flex-1">
                 <input
@@ -96,7 +58,10 @@ const TableauChangeModal = ({
                   name="nombrePhase"
                   value="monophaser"
                   checked={questionnaire.nombrePhase === 'monophaser'}
-                  onChange={(e) => onChange('nombrePhase', e.target.value)}
+                  onChange={(e) => {
+                    onChange('nombrePhase', e.target.value);
+                    onChange('appareilTriphase', '');
+                  }}
                   className="w-4 h-4 text-cyan-600"
                 />
                 <span>Monophasé</span>
@@ -115,12 +80,9 @@ const TableauChangeModal = ({
             </div>
           </div>
 
-          {/* 2. Appareil triphasé */}
+          {questionnaire.nombrePhase === 'triphaser' && (
           <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-              Appareil triphasé ?
-              <TooltipIcon field="appareilTriphase" />
-            </label>
+            <TableauFieldLabel field="appareilTriphase">Appareil triphasé ?</TableauFieldLabel>
             <div className="grid grid-cols-6 gap-2">
               {[0, 1, 2, 3, 4, 5].map(num => (
                 <label
@@ -144,13 +106,11 @@ const TableauChangeModal = ({
               ))}
             </div>
           </div>
+          )}
 
           {/* 3. Nombre de rangées */}
           <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-              Nombre de rangées ?
-              <TooltipIcon field="nombreRangees" />
-            </label>
+            <TableauFieldLabel field="nombreRangees">Nombre de rangées ?</TableauFieldLabel>
             <div className="grid grid-cols-4 gap-2">
               {[1, 2, 3, 4].map(num => (
                 <label
@@ -177,10 +137,9 @@ const TableauChangeModal = ({
 
           {/* 4. Nombre de disjoncteur/porte fusible */}
           <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+            <TableauFieldLabel field="nombreDisjoncteurs">
               Nombre de disjoncteur/porte fusible ?
-              <TooltipIcon field="nombreDisjoncteurs" />
-            </label>
+            </TableauFieldLabel>
             <input
               type="number"
               min="0"
@@ -193,10 +152,7 @@ const TableauChangeModal = ({
 
           {/* 6. Ligne spéciale */}
           <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-              Ligne spéciale ?
-              <TooltipIcon field="lignesSpeciales" />
-            </label>
+            <TableauFieldLabel field="lignesSpeciales">Ligne spéciale ?</TableauFieldLabel>
             <div className="grid grid-cols-2 gap-2">
               {['plaque_cuisson', 'lave_vaisselle', 'machine_laver', 'chauffeau'].map(ligne => {
                 const labels = {
@@ -229,45 +185,17 @@ const TableauChangeModal = ({
 
           {/* 7. Radiateur électrique */}
           <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-              Radiateur électrique ?
-              <TooltipIcon field="radiateurElectrique" />
-            </label>
-            <div className="flex gap-4">
-              <label className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer flex-1">
-                <input
-                  type="radio"
-                  name="radiateurElectrique"
-                  value="0"
-                  checked={questionnaire.radiateurElectrique === '0'}
-                  onChange={(e) => onChange('radiateurElectrique', e.target.value)}
-                  className="w-4 h-4 text-cyan-600"
-                />
-                <span>0</span>
-              </label>
-              <label className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer flex-1">
-                <input
-                  type="radio"
-                  name="radiateurElectrique"
-                  value="5_ou_moins"
-                  checked={questionnaire.radiateurElectrique === '5_ou_moins'}
-                  onChange={(e) => onChange('radiateurElectrique', e.target.value)}
-                  className="w-4 h-4 text-cyan-600"
-                />
-                <span>5 ou moins</span>
-              </label>
-              <label className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer flex-1">
-                <input
-                  type="radio"
-                  name="radiateurElectrique"
-                  value="plus_de_5"
-                  checked={questionnaire.radiateurElectrique === 'plus_de_5'}
-                  onChange={(e) => onChange('radiateurElectrique', e.target.value)}
-                  className="w-4 h-4 text-cyan-600"
-                />
-                <span>Plus de 5</span>
-              </label>
-            </div>
+            <TableauFieldLabel field="radiateurElectrique">
+              Nombre de radiateurs électriques
+            </TableauFieldLabel>
+            <input
+              type="number"
+              min="0"
+              value={questionnaire.radiateurElectrique}
+              onChange={(e) => onChange('radiateurElectrique', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              placeholder="Saisir le nombre (0 si aucun)"
+            />
           </div>
 
         </div>

@@ -99,6 +99,42 @@ class PrestationController {
     }
   }
 
+  // GET /api/prestations/special/interrupteur-eclairage
+  static async getSpecialInterrupteur(req, res) {
+    try {
+      let prestation = await PrestationModel.getSpecialInterrupteurEclairage();
+      if (!prestation) {
+        prestation = await PrestationModel.ensureSpecialInterrupteurEclairage();
+      }
+      if (!prestation) {
+        return res.status(503).json({
+          error: 'Prestation spéciale introuvable après migration. Vérifiez les logs backend (PINT001).'
+        });
+      }
+      res.json(prestation);
+    } catch (error) {
+      console.error('❌ getSpecialInterrupteur:', error);
+      res.status(503).json({
+        error: error.message || 'Erreur lors de la création de la prestation spéciale PINT001'
+      });
+    }
+  }
+
+  // PUT /api/prestations/special/interrupteur-eclairage — prix HT uniquement
+  static async updateSpecialInterrupteur(req, res) {
+    try {
+      const { prix_ht } = req.body;
+      if (prix_ht === undefined || prix_ht === null || Number.isNaN(Number(prix_ht))) {
+        return res.status(400).json({ error: 'prix_ht est requis' });
+      }
+      const prestation = await PrestationModel.updateSpecialInterrupteurPrix(Number(prix_ht));
+      res.json(prestation);
+    } catch (error) {
+      const statusCode = error.message.includes('introuvable') ? 404 : 500;
+      res.status(statusCode).json({ error: error.message });
+    }
+  }
+
   // GET /api/prestations/structure/:serviceType - Structure complète pour le formulaire
   static async getFormStructure(req, res) {
     try {

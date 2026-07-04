@@ -1,294 +1,260 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import Form from '../components/Form/Form';
 import ModalQuote from '../components/modal-pdf/ModalQuote';
-import TableauElectriqueModal from '../components/Form/TableauElectriqueModal';
-import TableauChangeModal from '../components/Form/TableauChangeModal';
+import { TableauElectriqueStep } from '../components/Form/TableauElectriqueModal';
+import TableauChangeWizard from '../components/Form/TableauChangeWizard';
 import { useTableauLogic } from '../components/Form/useTableauLogic';
 import ApiService from '../services/api';
-import { useModalAnimation } from '../hooks/useModalAnimation';
 import QuoteRapid from '../components/Form/QuoteRapid/QuoteRapid';
-
-const ANIMATION_DURATION = 400;
-
+import QuoteWizardShell, { STEP_ANIM_MS } from '../components/Quote/QuoteWizardShell';
+import QuoteHighlightModal from '../components/Quote/QuoteHighlightModal';
+import {
+  WizardChoiceButton,
+  WizardChoiceList,
+  WizardStepTitle,
+  WizardStepSubtitle
+} from '../components/Quote/WizardChoiceButton';
+import { useModalAnimation } from '../hooks/useModalAnimation';
+import {
+  CONFIG_STEP,
+  CONFIG_STEP_LABELS,
+  buildConfigSequence,
+  getConfigStepIndex
+} from '../components/Quote/quoteWizardFlow';
+import {
+  applyTableauMainOeuvre,
+  applyTableauMainOeuvreToItems,
+  normalizeTableauChoice,
+  resolveTableauMoRates
+} from '../components/Form/tableauMainOeuvreUtils';
 
 const SERVICES = [
-  { key: 'domotique', label: 'Domotique', icon: '🏠' },
-  { key: 'installation', label: 'Installation électrique générale', icon: '💡' },
-  { key: 'securite', label: 'Système de sécurité', icon: '🔒' },
-  { key: 'portail', label: 'Portail électrique / Volet roulant', icon: '🚪' },
+  { key: 'domotique', label: 'Domotique', icon: '🏠', description: 'Rénovation, neuf, connecté' },
+  { key: 'installation', label: 'Installation électrique générale', icon: '💡', description: 'Éclairage, prises, sécurité, volets…' },
+  { key: 'changer_tableau', label: 'Changement / pose tableau électrique', icon: '⚡', description: 'Remplacement, pose ou mise aux normes' }
 ];
 
 function Quote() {
-  // Remonter en haut de la page à l'arrivée sur le devis
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  const [step, setStep] = useState(1);
+  const [view, setView] = useState('wizard');
+  const [configStepId, setConfigStepId] = useState(CONFIG_STEP.CLIENT);
+  const [lastConfigStepId, setLastConfigStepId] = useState(CONFIG_STEP.CLIENT);
+  const [stepAnimClass, setStepAnimClass] = useState('animate-wizard-step-in');
+
+  const [quoteMode, setQuoteMode] = useState(null);
+  const [pendingTableauChoice, setPendingTableauChoice] = useState(null);
+  const [showPrestationsModal, setShowPrestationsModal] = useState(false);
+  const [showChangerModal, setShowChangerModal] = useState(false);
+  const [showRapidModal, setShowRapidModal] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     address: '',
     phone: '',
     company: '',
-    service: '',
+    service: ''
   });
-  // Nouvel enchaînement: centre (Grand/Petit) -> droite (Personnalisé/Rapide) -> droite (4 services) ou (devis rapide)
-  const [showWorkTypeModal, setShowWorkTypeModal] = useState(false); // centre
-  const [showQuoteModeModal, setShowQuoteModeModal] = useState(false); // droite
-  const [showServiceChoiceModal, setShowServiceChoiceModal] = useState(false); // droite (4 services)
-  const [serviceChoiceReturnTo, setServiceChoiceReturnTo] = useState('workType'); // 'workType' | 'quoteMode'
-  const [showRapidModal, setShowRapidModal] = useState(false); // droite
 
-  const [showServiceModal, setShowServiceModal] = useState(false);
   const [devisItems, setDevisItems] = useState([]);
   const [tableauData, setTableauData] = useState(null);
+  const [activeTableauData, setActiveTableauData] = useState(null);
   const lastFormServiceRef = useRef(null);
+  const changerWizardRef = useRef(null);
+  const rapidWizardRef = useRef(null);
+  const [changerWizardKey, setChangerWizardKey] = useState(0);
+  const [rapidWizardKey, setRapidWizardKey] = useState(0);
+  const [changerSubStep, setChangerSubStep] = useState(1);
+  const [rapidSubStep, setRapidSubStep] = useState(1);
+  const [, setChangerNavTick] = useState(0);
+  const [, setRapidNavTick] = useState(0);
 
-  // Hook pour gérer la logique du tableau électrique
   const tableauLogic = useTableauLogic();
-
-  // Animations des modals avec le hook
-  const serviceModalAnim = useModalAnimation(showServiceModal);
-  const quoteModeModalAnim = useModalAnimation(showQuoteModeModal);
-  const serviceChoiceModalAnim = useModalAnimation(showServiceChoiceModal);
+  const prestationsModalAnim = useModalAnimation(showPrestationsModal);
+  const changerModalAnim = useModalAnimation(showChangerModal);
   const rapidModalAnim = useModalAnimation(showRapidModal);
-  const tableauModalAnim = useModalAnimation(tableauLogic.showTableauModal);
-  const changeSubModalAnim = useModalAnimation(tableauLogic.showChangeSubModal);
-  const questionnaireModalAnim = useModalAnimation(tableauLogic.showQuestionnaireModal);
 
-  // Animation du modal centre (Grand/Petit)
-  const [workTypeModalAnim, setWorkTypeModalAnim] = useState('in');
+  const configSequence = useMemo(
+    () =>
+      buildConfigSequence({
+        quoteMode,
+        service: formData.service
+      }),
+    [quoteMode, formData.service]
+  );
 
-  // Gestion des champs
+  const configStepIndex = getConfigStepIndex(configSequence, configStepId);
+  const configStepTotal = configSequence.length;
+
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  // Étape 1 : validation et passage au choix service
-  const handleContinue = (e) => {
-    e.preventDefault();
-    setShowWorkTypeModal(true);
-    setWorkTypeModalAnim('in');
-  };
-
-  const openWorkTypeModal = () => {
-    setShowWorkTypeModal(true);
-    setWorkTypeModalAnim('in');
-  };
-
-  const handleCloseWorkTypeModal = () => {
-    setWorkTypeModalAnim('out');
-    setTimeout(() => {
-      setShowWorkTypeModal(false);
-      setShowQuoteModeModal(false);
-      setShowServiceChoiceModal(false);
-      setShowRapidModal(false);
-      setFormData(prev => ({ ...prev, service: '' }));
-      setStep(1);
-    }, ANIMATION_DURATION);
-  };
-
-  const handleSelectWorkType = (type) => {
-    setWorkTypeModalAnim('out');
-    setTimeout(() => {
-      setShowWorkTypeModal(false);
-
-      if (type === 'petit') {
-        setServiceChoiceReturnTo('workType');
-        setShowServiceChoiceModal(true);
-      } else {
-        setShowQuoteModeModal(true);
-      }
-    }, ANIMATION_DURATION);
-  };
-
-  const handleCloseQuoteModeModal = () => {
-    quoteModeModalAnim.closeWithAnimation(() => {
-      setShowQuoteModeModal(false);
-      openWorkTypeModal();
-    });
-  };
-
-  const handleSelectQuoteMode = (mode) => {
-    // mode: 'personnalise' | 'rapide'
-    if (mode === 'personnalise') {
-      quoteModeModalAnim.closeWithAnimation(() => {
-        setShowQuoteModeModal(false);
-        setServiceChoiceReturnTo('quoteMode');
-        setFormData(prev => ({ ...prev, quoteMode: undefined }));
-        setShowServiceChoiceModal(true);
-      });
-      return;
-    }
-
-    // rapide
-    quoteModeModalAnim.closeWithAnimation(() => {
-      setShowQuoteModeModal(false);
-      setShowRapidModal(true);
-    });
-  };
-
-  // Sélection du service (personnalisé) — retirer quoteMode pour ne pas rester en "rapide"
-  const handleServiceSelect = (key) => {
-    setFormData({ ...formData, service: key, quoteMode: undefined });
-  };
-
-  // Réinitialiser devis + tableau quand on ouvre le formulaire pour un autre service
   const resetFormStateIfServiceChanged = (serviceKey) => {
     if (lastFormServiceRef.current !== serviceKey) {
       lastFormServiceRef.current = serviceKey;
       setDevisItems([]);
       setTableauData(null);
+      setActiveTableauData(null);
+      setPendingTableauChoice(null);
     }
   };
 
-  // Validation du service
-  const handleValidateService = () => {
-    if (formData.service) {
-      const serviceKey = formData.service;
-      serviceChoiceModalAnim.closeWithAnimation(() => {
-        setShowServiceChoiceModal(false);
-        if (serviceKey === 'domotique' || serviceKey === 'installation') {
-          resetFormStateIfServiceChanged(serviceKey);
-          tableauLogic.setShowTableauModal(true);
-        } else {
-          resetFormStateIfServiceChanged(serviceKey);
-          setShowServiceModal(true);
-        }
-      });
-    }
-  };
+  const isClientInfoValid = () =>
+    Boolean(
+      formData.name.trim() &&
+        formData.email.trim() &&
+        formData.address.trim() &&
+        formData.phone.trim()
+    );
 
-  // Quand on valide le formulaire spécifique : slide out left puis afficher aperçu
-  const handleCloseServiceModal = async (items) => {
-    // Si on a un choix de tableau, calculer les matériaux avant de passer à l'aperçu
-    const finalItems = await calculateFinalTableauItems(items || [], tableauData);
-    setDevisItems(finalItems);
-    serviceModalAnim.closeWithAnimation(() => {
-      setShowServiceModal(false);
-      setStep(2);
-    });
-  };
+  const navigateConfigStep = useCallback((nextId, direction = 'next') => {
+    setStepAnimClass(direction === 'next' ? 'animate-wizard-step-out' : 'animate-wizard-step-out-back');
+    window.setTimeout(() => {
+      setConfigStepId(nextId);
+      setStepAnimClass(direction === 'next' ? 'animate-wizard-step-in' : 'animate-wizard-step-in-back');
+    }, STEP_ANIM_MS);
+  }, []);
 
-  // Fonction pour calculer les items finaux du tableau avant de générer le devis
-  const calculateFinalTableauItems = async (prestationsItems, tableauData) => {
-    // Pas de tableau électrique pour sécurité et portail
-    if (formData.service === 'securite' || formData.service === 'portail') {
-      return (prestationsItems || []).filter(item => item.type !== 'tableau');
-    }
-    // Si "garder mon tableau", ne rien ajouter
-    if (!tableauData || tableauData.choice === 'garder') {
+  const resetToClient = useCallback(() => {
+    setView('wizard');
+    setShowPrestationsModal(false);
+    setShowChangerModal(false);
+    setShowRapidModal(false);
+    setConfigStepId(CONFIG_STEP.CLIENT);
+    setLastConfigStepId(CONFIG_STEP.CLIENT);
+    setStepAnimClass('animate-wizard-step-in');
+    setQuoteMode(null);
+    setPendingTableauChoice(null);
+    setFormData((prev) => ({
+      ...prev,
+      service: '',
+      quoteMode: undefined
+    }));
+    setDevisItems([]);
+    setTableauData(null);
+    setActiveTableauData(null);
+    tableauLogic.resetTableauLogic();
+    lastFormServiceRef.current = null;
+    setChangerWizardKey((k) => k + 1);
+    setRapidWizardKey((k) => k + 1);
+  }, [tableauLogic]);
+
+  const getTableauServiceKey = () =>
+    formData.service === 'changer_tableau' ? 'changer_tableau' : formData.service;
+
+  const calculateFinalTableauItems = async (prestationsItems, currentTableauData) => {
+    if (!currentTableauData || currentTableauData.choice === 'garder') {
       return prestationsItems;
     }
 
-    // Séparer les prestations et les tableaux
-    const prestationsOnly = prestationsItems.filter(item => item.type !== 'tableau');
-    const existingTableaux = prestationsItems.filter(item => item.type === 'tableau');
+    let rates = resolveTableauMoRates(null);
+    try {
+      const cfg = await ApiService.getTableauConfig();
+      rates = resolveTableauMoRates(cfg);
+    } catch (_) {
+      /* tarifs par défaut */
+    }
 
-    // Si "nouveau tableau", calculer uniquement à partir des prestations
-    if (tableauData.choice === 'inexistant') {
+    const serviceKey = getTableauServiceKey();
+    const prestationsOnly = prestationsItems.filter((item) => item.type !== 'tableau');
+    const existingTableaux = prestationsItems.filter((item) => item.type === 'tableau');
+    const payloadTableauData = normalizeTableauChoice(currentTableauData);
+
+    if (payloadTableauData.choice === 'inexistant') {
       try {
-        const response = await ApiService.calculateTableau(prestationsOnly, {
-          choice: 'inexistant',
-          questionnaire: null
-        });
-        const result = response;
-      
-      // ID fixe pour "nouveau tableau" (même que dans useFormLogic)
-      const tableauItemId = `tableau-inexistant-${formData.service}`;
-      
-      const tableauItem = {
-        id: tableauItemId,
-        type: 'tableau',
-        room: 'Tableau électrique',
-        serviceType: formData.service,
-        tableauData: tableauData,
-        services: result.materiels,
-        mainOeuvre: result.mainOeuvre,
-        completed: false
-      };
-      
-      // Supprimer tous les anciens tableaux et ajouter le nouveau tableau calculé
-      // (car le calcul du tableau gère déjà toutes les prestations)
-      return [...prestationsOnly, tableauItem];
+        const rawResult = await ApiService.calculateTableau(prestationsOnly, payloadTableauData);
+        const result = applyTableauMainOeuvre(payloadTableauData, rawResult, rates);
+        return [
+          ...prestationsOnly,
+          {
+            id: `tableau-inexistant-${serviceKey}`,
+            type: 'tableau',
+            room: 'Tableau électrique',
+            serviceType: serviceKey,
+            tableauData: payloadTableauData,
+            services: result.materiels || [],
+            mainOeuvre: result.mainOeuvre ?? 0,
+            rangees: result.rangees ?? 0,
+            mainOeuvreType: result.mainOeuvreType,
+            mainOeuvreParRangee: result.mainOeuvreParRangee,
+            completed: false
+          }
+        ];
       } catch (error) {
         console.error('Erreur calcul tableau:', error);
         return prestationsItems;
       }
     }
 
-    // Si "changer mon tableau"
-    if (tableauData.choice === 'changer' && tableauData.questionnaire) {
-      if (tableauData.changeType === 'uniquement') {
-        // "Changer uniquement" : utiliser la même logique que "commencer" mais sans prestations
+    if (payloadTableauData.choice === 'changer' && payloadTableauData.questionnaire) {
+      if (payloadTableauData.changeType === 'uniquement') {
         try {
-          // Utiliser calculateTableau avec un tableau vide de prestations
-          const response = await ApiService.calculateTableau([], {
+          const rawResult = await ApiService.calculateTableau([], {
             choice: 'changer',
-            questionnaire: tableauData.questionnaire,
+            questionnaire: payloadTableauData.questionnaire,
             changeType: 'uniquement'
           });
-          const result = response;
-        
-        // ID fixe pour "changer uniquement"
-        const tableauItemId = `tableau-changer-uniquement-${formData.service}`;
-        
-        // Trouver le tableau existant pour "changer uniquement" parmi les tableaux existants
-        const existingTableauIndex = existingTableaux.findIndex(item => 
-          item.id === tableauItemId ||
-          (item.tableauData?.choice === 'changer' &&
-           item.tableauData?.changeType === 'uniquement')
-        );
-        
-        const tableauItem = {
-          id: existingTableauIndex >= 0 ? existingTableaux[existingTableauIndex].id : tableauItemId,
-          type: 'tableau',
-          room: 'Tableau électrique',
-          serviceType: formData.service,
-          tableauData: tableauData,
-          services: result.materiels,
-          mainOeuvre: result.mainOeuvre,
-          completed: false
-        };
-        
-        // Supprimer tous les anciens tableaux et ajouter le nouveau tableau calculé
-        return [...prestationsOnly, tableauItem];
+          const result = applyTableauMainOeuvre(payloadTableauData, rawResult, rates);
+          const tableauItemId = `tableau-changer-uniquement-${serviceKey}`;
+          const existingTableauIndex = existingTableaux.findIndex(
+            (item) =>
+              item.id === tableauItemId ||
+              (item.tableauData?.choice === 'changer' &&
+                item.tableauData?.changeType === 'uniquement')
+          );
+          return [
+            ...prestationsOnly,
+            {
+              id:
+                existingTableauIndex >= 0
+                  ? existingTableaux[existingTableauIndex].id
+                  : tableauItemId,
+              type: 'tableau',
+              room: 'Tableau électrique',
+              serviceType: serviceKey,
+              tableauData: payloadTableauData,
+              services: result.materiels || [],
+              mainOeuvre: result.mainOeuvre ?? 0,
+              rangees: result.rangees ?? 0,
+              mainOeuvreType: result.mainOeuvreType,
+              mainOeuvreParRangee: result.mainOeuvreParRangee,
+              completed: false
+            }
+          ];
         } catch (error) {
           console.error('Erreur calcul tableau:', error);
           return prestationsItems;
         }
-      } else if (tableauData.changeType === 'commencer') {
-        // "Changer + ajouter prestation" : fusionner questionnaires + prestations
+      }
+
+      if (payloadTableauData.changeType === 'commencer') {
         try {
-          // Utiliser calculateTableau avec questionnaires et prestations
-          const response = await ApiService.calculateTableau(prestationsOnly, {
+          const rawResult = await ApiService.calculateTableau(prestationsOnly, {
             choice: 'changer',
-            questionnaire: tableauData.questionnaire,
+            questionnaire: payloadTableauData.questionnaire,
             changeType: 'commencer'
           });
-          const result = response;
-        
-        // ID fixe pour "changer + commencer" (même que dans useFormLogic)
-        const tableauItemId = `tableau-changer-commencer-${formData.service}`;
-        
-        const tableauItem = {
-          id: tableauItemId,
-          type: 'tableau',
-          room: 'Tableau électrique',
-          serviceType: formData.service,
-          tableauData: tableauData,
-          services: result.materiels,
-          mainOeuvre: result.mainOeuvre,
-          completed: false
-        };
-        
-        // Supprimer tous les anciens tableaux et ajouter le nouveau tableau calculé
-        // (car calculateTableau calcule déjà pour tous les questionnaires)
-        return [...prestationsOnly, tableauItem];
+          const result = applyTableauMainOeuvre(payloadTableauData, rawResult, rates);
+          return [
+            ...prestationsOnly,
+            {
+              id: `tableau-changer-commencer-${serviceKey}`,
+              type: 'tableau',
+              room: 'Tableau électrique',
+              serviceType: serviceKey,
+              tableauData: payloadTableauData,
+              services: result.materiels || [],
+              mainOeuvre: result.mainOeuvre ?? 0,
+              rangees: result.rangees ?? 0,
+              mainOeuvreType: result.mainOeuvreType,
+              mainOeuvreParRangee: result.mainOeuvreParRangee,
+              completed: false
+            }
+          ];
         } catch (error) {
           console.error('Erreur calcul tableau:', error);
           return prestationsItems;
@@ -299,553 +265,469 @@ function Quote() {
     return prestationsItems;
   };
 
-  // Fonction pour retourner à la saisie des identifiants
-  const handleCancelToStep1 = () => {
-    serviceModalAnim.closeWithAnimation(() => {
-      setShowServiceModal(false);
-      setStep(1);
-    });
+  const goToPreview = async (items, dataOverride = null) => {
+    const finalItems = await calculateFinalTableauItems(items || [], dataOverride ?? tableauData);
+    setDevisItems(finalItems);
+    setShowPrestationsModal(false);
+    setShowChangerModal(false);
+    setView('preview');
   };
 
-  // Fermeture du modal service - retour à l'étape 1
-  const handleCloseServiceModalDirect = () => {
-    serviceModalAnim.closeWithAnimation(() => {
-      setShowServiceModal(false);
-      setShowWorkTypeModal(false);
-      setShowQuoteModeModal(false);
-      setShowServiceChoiceModal(false);
-      setShowRapidModal(false);
-      setStep(1);
-    });
-  };
-
-  const handleCloseServiceChoiceModal = () => {
-    // Retour au bon écran (Petit -> Grand/Petit, Grand-personnalisé -> Personnalisé/Rapide)
-    serviceChoiceModalAnim.closeWithAnimation(() => {
-      setShowServiceChoiceModal(false);
-      setFormData(prev => ({ ...prev, service: '' }));
-
-      if (serviceChoiceReturnTo === 'quoteMode') {
-        setShowQuoteModeModal(true);
-      } else {
-        openWorkTypeModal();
-      }
-    });
-  };
-
-  const handleRapidBack = () => {
-    rapidModalAnim.closeWithAnimation(() => {
-      setShowRapidModal(false);
-      setShowQuoteModeModal(true);
-    });
-  };
-
-  const handleRapidGenerate = (items) => {
-    setDevisItems(items);
-    // pour cohérence / affichage "Type" côté PDF (optionnel)
-    setFormData(prev => ({ ...prev, service: 'installation', serviceType: 'Devis rapide', quoteMode: 'rapide' }));
-    rapidModalAnim.closeWithAnimation(() => {
-      setShowRapidModal(false);
-      setStep(2);
-    });
-  };
-
-  // Gestion du choix du tableau électrique
-  const handleTableauChoice = (choice) => {
-    if (choice === 'garder' || choice === 'inexistant') {
-      // Pour "garder" ou "inexistant", fermer le modal et ouvrir le formulaire de service
-      tableauLogic.handleTableauChoice(choice);
-      tableauModalAnim.closeWithAnimation(() => {
-        resetFormStateIfServiceChanged(formData.service);
-        setTableauData({
-          choice,
-          questionnaire: null,
-          changeType: choice === 'inexistant' ? 'commencer' : null
-        });
-        tableauLogic.setShowTableauModal(false);
-        setShowServiceModal(true);
-      });
-    } else if (choice === 'changer') {
-      // Pour "changer", gérer via le hook (ouvre le sous-modal)
-      tableauLogic.handleTableauChoice(choice);
+  const openPrestationsModal = (tableauOverride = null) => {
+    setLastConfigStepId(configStepId);
+    resetFormStateIfServiceChanged(formData.service);
+    if (tableauOverride) {
+      setTableauData(tableauOverride);
+      setActiveTableauData(tableauOverride);
     }
+    setShowPrestationsModal(true);
   };
 
-  // Fermeture du modal tableau principal - retour à l'étape 1
-  const handleCloseTableauModal = () => {
-    tableauModalAnim.closeWithAnimation(() => {
-      tableauLogic.setShowTableauModal(false);
-      tableauLogic.resetTableauLogic();
-      setShowWorkTypeModal(false);
-      setShowQuoteModeModal(false);
-      setShowServiceChoiceModal(false);
-      setShowRapidModal(false);
-      setStep(1);
+  const closePrestationsModal = () => {
+    prestationsModalAnim.closeWithAnimation(() => {
+      setShowPrestationsModal(false);
+      setActiveTableauData(null);
     });
   };
 
-  // Fermeture du sous-modal "Changer mon tableau" - retour à l'étape 1
-  const handleCloseChangeSubModal = () => {
-    changeSubModalAnim.closeWithAnimation(() => {
-      tableauLogic.setShowChangeSubModal(false);
-      tableauLogic.setShowTableauModal(false);
-      tableauLogic.resetTableauLogic();
-      setShowWorkTypeModal(false);
-      setShowQuoteModeModal(false);
-      setShowServiceChoiceModal(false);
-      setShowRapidModal(false);
-      setStep(1);
+  const openChangerModal = () => {
+    setChangerWizardKey((k) => k + 1);
+    setChangerSubStep(1);
+    setShowChangerModal(true);
+  };
+
+  const closeChangerModal = () => {
+    changerModalAnim.closeWithAnimation(() => setShowChangerModal(false));
+  };
+
+  const openRapidModal = () => {
+    setRapidWizardKey((k) => k + 1);
+    setRapidSubStep(1);
+    setShowRapidModal(true);
+  };
+
+  const closeRapidModal = () => {
+    rapidModalAnim.closeWithAnimation(() => setShowRapidModal(false));
+  };
+
+  const handleCloseServiceModal = async (items) => {
+    prestationsModalAnim.closeWithAnimation(async () => {
+      setShowPrestationsModal(false);
+      await goToPreview(items);
     });
   };
 
-  // Gestion du sous-choix "Changer mon tableau"
-  const handleChangeType = (type) => {
-    changeSubModalAnim.closeWithAnimation(() => {
-      tableauLogic.handleChangeType(type);
-    });
-  };
-
-  // Fermeture du modal questionnaire avec animation - retour à l'étape 1
-  const handleCloseQuestionnaireModal = () => {
-    questionnaireModalAnim.closeWithAnimation(() => {
-      tableauLogic.setShowQuestionnaireModal(false);
-      tableauLogic.resetTableauLogic();
-      setShowWorkTypeModal(false);
-      setShowQuoteModeModal(false);
-      setShowServiceChoiceModal(false);
-      setShowRapidModal(false);
-      setStep(1);
-    });
-  };
-
-  // Handler pour ajouter un autre tableau (sauvegarde le questionnaire actuel et réinitialise)
-  const handleAddAnotherTableau = async () => {
-    const data = tableauLogic.getTableauData();
-    if (data.questionnaire) {
-      try {
-        // Calculer les matériels du tableau actuel (avec les prestations actuelles pour compter les interrupteurs)
-        const response = await ApiService.calculateTableau(
-          devisItems.filter(item => item.type !== 'tableau'),
-          {
-            choice: 'changer',
-            questionnaire: data.questionnaire,
-            changeType: 'uniquement'
-          }
-        );
-        const result = response;
-      
-      // Créer l'item tableau
-      const tableauItem = {
-        id: `tableau-${Date.now()}`,
-        type: 'tableau',
-        room: 'Tableau électrique',
-        serviceType: formData.service,
-        tableauData: data,
-        services: result.materiels,
-        mainOeuvre: result.mainOeuvre,
-        completed: false
-      };
-
-      // Ajouter le tableau aux devisItems existants (ne pas écraser - sauvegarde en mémoire)
-      setDevisItems(prev => [...prev, tableauItem]);
-      } catch (error) {
-        console.error('Erreur calcul tableau:', error);
-      }
-    }
-
-    // Réinitialiser le questionnaire et les états pour en ajouter un nouveau
-    // On garde la mémoire des tableaux déjà ajoutés dans devisItems
-    questionnaireModalAnim.closeWithAnimation(() => {
-      tableauLogic.setShowQuestionnaireModal(false);
-      // Réinitialiser le questionnaire
-      tableauLogic.setQuestionnaire({
-        nombrePhase: '',
-        appareilTriphase: '',
-        nombreRangees: '',
-        nombreDifferentiels: '',
-        nombreDisjoncteurs: '',
-        lignesSpeciales: [],
-        radiateurElectrique: '',
-        telerupteur: false
-      });
-      // Réinitialiser les choix pour permettre de choisir un nouveau type de tableau
-      tableauLogic.setTableauChoice(null);
-      tableauLogic.setChangeType(null);
-      // Rouvrir le modal de choix initial pour choisir un nouveau tableau
-      setTimeout(() => {
-        tableauLogic.setShowTableauModal(true);
-      }, 50);
-    });
-  };
-
-  // Validation du questionnaire
-  const handleQuestionnaireValidate = () => {
-    const data = tableauLogic.getTableauData();
+  const handleChangerWizardComplete = async (data) => {
     setTableauData(data);
+    setActiveTableauData(data);
+    changerModalAnim.closeWithAnimation(async () => {
+      setShowChangerModal(false);
+      if (data.choice === 'inexistant') {
+        openPrestationsModal(data);
+        return;
+      }
+      if (data.changeType === 'uniquement') {
+        await goToPreview([], data);
+      } else {
+        openPrestationsModal(data);
+      }
+    });
+  };
 
-    // Gérer selon le type de changement
-    if (tableauLogic.changeType === 'uniquement') {
-      // Pour "uniquement", ne pas créer le tableau ici
-      // Le tableau sera créé dans calculateFinalTableauItems avec la même logique que "commencer"
-      // mais sans prestations
-      // Recalculer les items finaux avant de passer à step 2
-      calculateFinalTableauItems([], data).then(finalItems => {
-        setDevisItems(finalItems);
-      }).catch(error => {
-        console.error('Erreur calcul tableau:', error);
-      });
-      
-      // Fermer le questionnaire puis le modal principal et générer le devis
-      questionnaireModalAnim.closeWithAnimation(() => {
-        tableauLogic.setShowQuestionnaireModal(false);
-        tableauLogic.resetTableauLogic();
-        // Fermer aussi le modal principal du tableau
-        tableauModalAnim.closeWithAnimation(() => {
-          tableauLogic.setShowTableauModal(false);
-          setStep(2);
-        });
-      });
-    } else if (tableauLogic.changeType === 'commencer' || tableauLogic.tableauChoice === 'inexistant') {
-      // Pour "commencer" ou "inexistant", ne pas créer de tableau ici
-      // Le tableau sera créé dans calculateFinalTableauItems avec les prestations
-      // Fermer le questionnaire puis le modal principal et ouvrir le formulaire de service
-      questionnaireModalAnim.closeWithAnimation(() => {
-        tableauLogic.setShowQuestionnaireModal(false);
-        // Ne pas réinitialiser tableauLogic pour garder les données du questionnaire
-        // Fermer aussi le modal principal du tableau
-        tableauModalAnim.closeWithAnimation(() => {
-          tableauLogic.setShowTableauModal(false);
-          setShowServiceModal(true);
-        });
-      });
+  const handleRapidGenerate = async (items) => {
+    let rates = resolveTableauMoRates(null);
+    try {
+      const cfg = await ApiService.getTableauConfig();
+      rates = resolveTableauMoRates(cfg);
+    } catch (_) {
+      /* tarifs par défaut */
+    }
+    rapidModalAnim.closeWithAnimation(() => {
+      setShowRapidModal(false);
+      setDevisItems(applyTableauMainOeuvreToItems(items, rates));
+      setFormData((prev) => ({
+        ...prev,
+        service: 'installation',
+        serviceType: 'Devis rapide',
+        quoteMode: 'rapide'
+      }));
+      setView('preview');
+    });
+  };
+
+  const handleServiceSelect = (key) => {
+    setFormData((prev) => ({ ...prev, service: key }));
+  };
+
+  const changerCanNext = changerWizardRef.current?.canGoNext?.() ?? false;
+  const changerNextLabel = changerWizardRef.current?.getNextLabel?.() || 'Suivant';
+  const rapidCanNext = rapidWizardRef.current?.canGoNext?.() ?? false;
+  const rapidNextLabel = rapidWizardRef.current?.getNextLabel?.() || 'Suivant';
+
+  const canConfigNext = () => {
+    switch (configStepId) {
+      case CONFIG_STEP.CLIENT:
+        return isClientInfoValid();
+      case CONFIG_STEP.QUOTE_MODE:
+        return Boolean(quoteMode);
+      case CONFIG_STEP.SERVICE:
+        return Boolean(formData.service);
+      case CONFIG_STEP.TABLEAU:
+        return Boolean(pendingTableauChoice);
+      default:
+        return false;
     }
   };
 
-  // Rendu dynamique du formulaire selon le service (key pour remonter le form à chaque changement de service)
-  const renderServiceForm = () => {
-    return <Form 
-      key={formData.service}
-      serviceType={formData.service} 
-      onClose={handleCloseServiceModal} 
-      onCancel={handleCancelToStep1}
-      tableauData={tableauData}
-    />;
+  const handleConfigNext = () => {
+    if (!canConfigNext()) return;
+
+    if (configStepId === CONFIG_STEP.CLIENT) {
+      navigateConfigStep(CONFIG_STEP.QUOTE_MODE, 'next');
+      return;
+    }
+
+    if (configStepId === CONFIG_STEP.QUOTE_MODE) {
+      if (quoteMode === 'rapide') {
+        openRapidModal();
+        return;
+      }
+      navigateConfigStep(CONFIG_STEP.SERVICE, 'next');
+      return;
+    }
+
+    if (configStepId === CONFIG_STEP.SERVICE) {
+      resetFormStateIfServiceChanged(formData.service);
+      if (formData.service === 'changer_tableau') {
+        openChangerModal();
+      } else {
+        setPendingTableauChoice(null);
+        navigateConfigStep(CONFIG_STEP.TABLEAU, 'next');
+      }
+      return;
+    }
+
+    if (configStepId === CONFIG_STEP.TABLEAU) {
+      if (pendingTableauChoice === 'changer') {
+        setTableauData({ choice: 'changer', questionnaire: null, changeType: null });
+        openChangerModal();
+        return;
+      }
+      if (pendingTableauChoice === 'inexistant') {
+        const newTableauData = {
+          choice: 'inexistant',
+          questionnaire: null,
+          changeType: null
+        };
+        setTableauData(newTableauData);
+        openPrestationsModal(newTableauData);
+        return;
+      }
+      if (pendingTableauChoice === 'garder') {
+        const garderData = { choice: 'garder', questionnaire: null, changeType: null };
+        setTableauData(garderData);
+        openPrestationsModal(garderData);
+      }
+    }
   };
+
+  const handleConfigPrev = () => {
+    const idx = configStepIndex;
+    if (idx <= 0) return;
+    navigateConfigStep(configSequence[idx - 1], 'prev');
+  };
+
+  const handleChangerPrev = () => {
+    const handled = changerWizardRef.current?.goPrev?.();
+    if (!handled) closeChangerModal();
+    setChangerNavTick((n) => n + 1);
+  };
+
+  const handleChangerNext = () => {
+    changerWizardRef.current?.goNext?.();
+    setChangerNavTick((n) => n + 1);
+  };
+
+  const handleRapidPrev = () => {
+    const handled = rapidWizardRef.current?.goPrev?.();
+    if (!handled) closeRapidModal();
+    setRapidNavTick((n) => n + 1);
+  };
+
+  const handleRapidNext = async () => {
+    await rapidWizardRef.current?.goNext?.();
+    setRapidNavTick((n) => n + 1);
+  };
+
+  const renderQuoteTikTokHint = () => (
+    <p className="text-[0.65rem] sm:text-xs text-gray-700 leading-snug flex flex-wrap items-center justify-center gap-1">
+      Tutoriel sur notre{' '}
+      <a
+        href="https://www.tiktok.com/@qtb.electrotech"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-0.5 text-cyan-700 hover:text-cyan-900 font-semibold transition-colors underline-offset-2 hover:underline"
+        aria-label="TikTok QTB Electrotech"
+      >
+        <img src="/image/tiktok-logo.png" alt="" className="h-4 w-4 sm:h-5 sm:w-5 object-contain" />
+        TikTok
+      </a>
+    </p>
+  );
+
+  const renderConfigStep = () => {
+    switch (configStepId) {
+      case CONFIG_STEP.CLIENT:
+        return (
+          <>
+            <WizardStepTitle>Vos coordonnées</WizardStepTitle>
+            <WizardStepSubtitle>Ces informations figureront sur votre devis.</WizardStepSubtitle>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 w-full">
+              {[
+                { id: 'name', label: 'Nom complet *', type: 'text', required: true },
+                { id: 'phone', label: 'Téléphone *', type: 'tel', required: true },
+                { id: 'email', label: 'Email *', type: 'email', required: true },
+                { id: 'address', label: 'Adresse *', type: 'text', required: true }
+              ].map(({ id, label, type, required }) => (
+                <div key={id}>
+                  <label htmlFor={`wizard-${id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                    {label}
+                  </label>
+                  <input
+                    type={type}
+                    id={`wizard-${id}`}
+                    name={id}
+                    value={formData[id]}
+                    onChange={handleChange}
+                    required={required}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
+                  />
+                </div>
+              ))}
+              <div className="sm:col-span-2">
+                <label htmlFor="wizard-company" className="block text-sm font-medium text-gray-700 mb-1">
+                  Entreprise (optionnel)
+                </label>
+                <input
+                  type="text"
+                  id="wizard-company"
+                  name="company"
+                  value={formData.company}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
+                />
+              </div>
+            </div>
+          </>
+        );
+
+      case CONFIG_STEP.QUOTE_MODE:
+        return (
+          <>
+            <WizardStepTitle>Type de devis</WizardStepTitle>
+            <WizardChoiceList>
+              {[
+                { key: 'personnalise', label: 'Devis personnalisé', icon: '🧩' },
+                { key: 'rapide', label: 'Devis rapide', icon: '⚡' }
+              ].map(({ key, label, icon }) => (
+                <WizardChoiceButton
+                  key={key}
+                  selected={quoteMode === key}
+                  onClick={() => setQuoteMode(key)}
+                >
+                  <span className="flex items-center justify-center gap-3">
+                    <span className="text-2xl">{icon}</span>
+                    {label}
+                  </span>
+                </WizardChoiceButton>
+              ))}
+            </WizardChoiceList>
+          </>
+        );
+
+      case CONFIG_STEP.SERVICE:
+        return (
+          <>
+            <WizardStepTitle>Type de projet</WizardStepTitle>
+            <WizardStepSubtitle>
+              Sécurité et volet/portail sont inclus dans le parcours installation (zone extérieur).
+            </WizardStepSubtitle>
+            <WizardChoiceList>
+              {SERVICES.map((srv) => (
+                <WizardChoiceButton
+                  key={srv.key}
+                  selected={formData.service === srv.key}
+                  onClick={() => handleServiceSelect(srv.key)}
+                  className="text-left"
+                >
+                  <span className="flex items-start gap-3">
+                    <span className="text-2xl shrink-0">{srv.icon}</span>
+                    <span>
+                      <span className="block">{srv.label}</span>
+                      {srv.description && (
+                        <span
+                          className={`block text-xs font-normal mt-0.5 ${
+                            formData.service === srv.key ? 'text-cyan-100' : 'text-gray-600'
+                          }`}
+                        >
+                          {srv.description}
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                </WizardChoiceButton>
+              ))}
+            </WizardChoiceList>
+          </>
+        );
+
+      case CONFIG_STEP.TABLEAU:
+        return (
+          <TableauElectriqueStep
+            selectedChoice={pendingTableauChoice}
+            onChoice={setPendingTableauChoice}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const configStepLabel = CONFIG_STEP_LABELS[configStepId] || '';
+
+  const renderServiceForm = () => {
+    const formServiceType =
+      formData.service === 'changer_tableau' ? 'installation' : formData.service;
+
+    return (
+      <Form
+        key={`${formData.service}-${tableauData?.choice || 'none'}-prestations`}
+        embedded
+        serviceType={formServiceType}
+        tableauServiceKey={getTableauServiceKey()}
+        onClose={handleCloseServiceModal}
+        onCancel={closePrestationsModal}
+        onPrevPhase={() => {
+          closePrestationsModal();
+          setConfigStepId(lastConfigStepId);
+        }}
+        tableauData={activeTableauData ?? tableauData}
+      />
+    );
+  };
+
+  const shellActivePhase = showPrestationsModal || showRapidModal ? 2 : 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-12">
-      <div className="max-w-4xl mx-auto px-6">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">Demander un Devis</h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Remplissez ce formulaire pour recevoir un devis personnalisé pour votre projet
-          </p>
-          <p className="text-base text-gray-600 max-w-2xl mx-auto mt-3 flex flex-wrap items-center justify-center gap-2">
-            Pour vous aider à remplir notre formulaire, regardez le tuto sur notre{' '}
-            <a
-              href="https://www.tiktok.com/@qtb.electrotech"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-cyan-600 hover:text-cyan-800 font-medium transition-colors"
-              aria-label="TikTok QTB Electrotech"
-            >
-              <img src="/image/tiktok-logo.png" alt="" className="h-6 w-6 object-contain" />
-              TikTok
-            </a>
-          </p>
+    <>
+      {view === 'wizard' && (
+        <div className="flex flex-col min-h-[calc(100dvh-5rem)]">
+          <QuoteWizardShell
+            footerHint={renderQuoteTikTokHint()}
+            contentMaxWidth={configStepId === CONFIG_STEP.CLIENT ? 'max-w-2xl' : 'max-w-xl'}
+            activePhase={shellActivePhase}
+          configStepLabel={configStepLabel}
+          configStepIndex={configStepIndex}
+          configStepTotal={configStepTotal}
+          stepAnimClass={stepAnimClass}
+          onClose={resetToClient}
+          onPrev={handleConfigPrev}
+          onNext={handleConfigNext}
+          prevDisabled={configStepIndex === 0}
+          nextDisabled={!canConfigNext()}
+        >
+          {renderConfigStep()}
+        </QuoteWizardShell>
         </div>
+      )}
 
-        {/* Étape 1 : Formulaire infos de base */}
-        {step === 1 && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <form onSubmit={handleContinue} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                    Nom complet *
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-                    Adresse *
-                  </label>
-                  <input
-                    type="text"
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                    Téléphone *
-                  </label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">
-                    Entreprise (optionnel)
-                  </label>
-                  <input
-                    type="text"
-                    id="company"
-                    name="company"
-                    value={formData.company}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              <div className="text-center">
-                <button
-                  type="submit"
-                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors transform hover:scale-105"
-                >
-                  Continuer
-                </button>
-              </div>
-            </form>
-          </div>
+      {prestationsModalAnim.isRendered && (
+          <QuoteHighlightModal
+            isRendered
+            animState={prestationsModalAnim.animState}
+            subtitle="Étape 2 — Prestations"
+            title="Composer votre devis"
+            maxWidth="max-w-7xl"
+            onClose={closePrestationsModal}
+            hidePrev
+            hideNext
+          >
+            {renderServiceForm()}
+          </QuoteHighlightModal>
         )}
 
-        {/* Modal centre : Grand/Petit travaux */}
-        {showWorkTypeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative transition-transform duration-400 ${workTypeModalAnim === 'in' ? 'animate-slide-in-center' : 'animate-slide-out-left'}`}>
-              <button
-                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl"
-                onClick={handleCloseWorkTypeModal}
-                aria-label="Fermer"
-              >
-                &times;
-              </button>
-              <h2 className="text-2xl font-bold text-cyan-800 mb-6 text-center">Type de travaux</h2>
-              <div className="grid grid-cols-1 gap-4">
-                <button
-                  className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100"
-                  onClick={() => handleSelectWorkType('grand')}
-                >
-                  <span className="text-2xl">🏗️</span>
-                  <span>Grand travaux</span>
-                </button>
-                <button
-                  className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100"
-                  onClick={() => handleSelectWorkType('petit')}
-                >
-                  <span className="text-2xl">🛠️</span>
-                  <span>Petit travaux</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal slide droite : Personnalisé / Rapide (Grand travaux) */}
-        {quoteModeModalAnim.isRendered && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div
-              className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative transition-transform duration-400 modal-animation-ready ${
-                quoteModeModalAnim.animState === 'in' ? 'animate-slide-in-right' : quoteModeModalAnim.animState === 'out' ? 'animate-slide-out-left' : ''
-              }`}
-            >
-              <button
-                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl"
-                onClick={handleCloseQuoteModeModal}
-                aria-label="Fermer"
-              >
-                &times;
-              </button>
-              <h2 className="text-2xl font-bold text-cyan-800 mb-6 text-center">Grand travaux</h2>
-              <div className="grid grid-cols-1 gap-4">
-                <button
-                  className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100"
-                  onClick={() => handleSelectQuoteMode('personnalise')}
-                >
-                  <span className="text-2xl">🧩</span>
-                  <span>Devis personnalisé</span>
-                </button>
-                <button
-                  className="w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100"
-                  onClick={() => handleSelectQuoteMode('rapide')}
-                >
-                  <span className="text-2xl">⚡</span>
-                  <span>Devis rapide</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal slide droite : choix des 4 services */}
-        {serviceChoiceModalAnim.isRendered && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div
-              className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-md relative transition-transform duration-400 modal-animation-ready ${
-                serviceChoiceModalAnim.animState === 'in' ? 'animate-slide-in-right' : serviceChoiceModalAnim.animState === 'out' ? 'animate-slide-out-left' : ''
-              }`}
-            >
-              <button
-                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl"
-                onClick={handleCloseServiceChoiceModal}
-                aria-label="Fermer"
-              >
-                &times;
-              </button>
-              <h2 className="text-2xl font-bold text-cyan-800 mb-6 text-center">Choisissez un service</h2>
-              <div className="grid grid-cols-1 gap-4">
-                {SERVICES.map((srv) => (
-                  <button
-                    key={srv.key}
-                    className={`w-full py-4 rounded-lg border-2 font-semibold text-lg transition-colors flex items-center justify-start gap-4 ${
-                      formData.service === srv.key
-                        ? 'bg-cyan-600 text-white border-cyan-600'
-                        : 'bg-gray-50 text-cyan-800 border-cyan-200 hover:bg-cyan-100'
-                    }`}
-                    onClick={() => handleServiceSelect(srv.key)}
-                  >
-                    <span className="text-2xl">{srv.icon}</span>
-                    <span>{srv.label}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="text-center mt-6">
-                <button
-                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors disabled:opacity-50"
-                  onClick={handleValidateService}
-                  disabled={!formData.service}
-                >
-                  Valider
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal slide droite : devis rapide */}
         {rapidModalAnim.isRendered && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div
-              className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-lg relative transition-transform duration-400 modal-animation-ready ${
-                rapidModalAnim.animState === 'in' ? 'animate-slide-in-right' : rapidModalAnim.animState === 'out' ? 'animate-slide-out-left' : ''
-              }`}
-            >
-              <button
-                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl z-10"
-                onClick={handleRapidBack}
-                aria-label="Fermer"
-              >
-                &times;
-              </button>
-              <QuoteRapid onGenerate={handleRapidGenerate} onBack={handleRapidBack} />
-            </div>
+          <QuoteHighlightModal
+            isRendered
+            animState={rapidModalAnim.animState}
+            subtitle={`Devis rapide — ${rapidSubStep}/3`}
+            title="Composer votre devis rapide"
+            maxWidth="max-w-4xl"
+            onClose={closeRapidModal}
+            onPrev={handleRapidPrev}
+            onNext={handleRapidNext}
+            prevDisabled={false}
+            nextDisabled={!rapidCanNext}
+            nextLabel={rapidNextLabel}
+          >
+            <QuoteRapid
+              key={rapidWizardKey}
+              ref={rapidWizardRef}
+              onGenerate={handleRapidGenerate}
+              onStateChange={({ wizardStep }) => {
+                setRapidSubStep(wizardStep);
+                setRapidNavTick((n) => n + 1);
+              }}
+            />
+          </QuoteHighlightModal>
+        )}
+
+        {changerModalAnim.isRendered && (
+          <QuoteHighlightModal
+            isRendered
+            animState={changerModalAnim.animState}
+            subtitle={`Questionnaire tableau — ${changerSubStep}/3`}
+            title="Changement / pose tableau électrique"
+            maxWidth="max-w-2xl"
+            onClose={closeChangerModal}
+            onPrev={handleChangerPrev}
+            onNext={handleChangerNext}
+            prevDisabled={false}
+            nextDisabled={!changerCanNext}
+            nextLabel={changerNextLabel}
+          >
+            <TableauChangeWizard
+              key={changerWizardKey}
+              ref={changerWizardRef}
+              embedded
+              onComplete={handleChangerWizardComplete}
+              onStateChange={({ wizardStep }) => {
+                setChangerSubStep(wizardStep);
+                setChangerNavTick((n) => n + 1);
+              }}
+            />
+          </QuoteHighlightModal>
+        )}
+
+      {view === 'preview' && (
+        <div
+          className="min-h-screen py-8 px-4 sm:px-6 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: "url('/image/fond-form.png')" }}
+        >
+          <div className="max-w-5xl mx-auto w-full">
+            <ModalQuote
+              formData={formData}
+              onBackToStep1={() => {
+                setFormData((prev) => ({ ...prev, quoteMode: undefined }));
+                resetToClient();
+              }}
+              devisItems={devisItems}
+            />
           </div>
-        )}
-
-        {/* Modal formulaire spécifique au service (slide-in depuis la droite) */}
-        {serviceModalAnim.isRendered && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div 
-              className={`bg-white rounded-xl shadow-lg p-8 w-full max-w-lg relative transition-transform duration-400 modal-animation-ready ${
-                serviceModalAnim.animState === 'in' ? 'animate-slide-in-right' : serviceModalAnim.animState === 'out' ? 'animate-slide-out-left' : ''
-              }`}
-            >
-              <button
-                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl z-10"
-                onClick={handleCloseServiceModalDirect}
-                aria-label="Fermer"
-              >
-                &times;
-              </button>
-              {/* Titre du service uniquement */}
-              <div className="mb-6 border-b pb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{SERVICES.find(s => s.key === formData.service)?.icon}</span>
-                  <span className="text-xl font-bold text-cyan-800">{SERVICES.find(s => s.key === formData.service)?.label}</span>
-                </div>
-              </div>
-              {/* Formulaire spécifique */}
-              {renderServiceForm()}
-            </div>
-          </div>
-        )}
-
-        {/* Modal tableau électrique */}
-        {(tableauModalAnim.isRendered || changeSubModalAnim.isRendered) && (
-          <TableauElectriqueModal
-            onChoice={handleTableauChoice}
-            onClose={handleCloseTableauModal}
-            showChangeSubModal={tableauLogic.showChangeSubModal}
-            onChangeType={handleChangeType}
-            onCloseChangeSubModal={handleCloseChangeSubModal}
-            animState={tableauModalAnim.animState}
-            changeSubModalAnimState={changeSubModalAnim.animState}
-            isMainModalRendered={tableauModalAnim.isRendered}
-            isSubModalRendered={changeSubModalAnim.isRendered}
-          />
-        )}
-
-        {/* Modal questionnaire changement tableau */}
-        {questionnaireModalAnim.isRendered && (
-          <TableauChangeModal
-            showModal={tableauLogic.showQuestionnaireModal}
-            questionnaire={tableauLogic.questionnaire}
-            onChange={tableauLogic.handleQuestionnaireChange}
-            onLigneSpecialeToggle={tableauLogic.handleLigneSpecialeToggle}
-            onValidate={handleQuestionnaireValidate}
-            onClose={handleCloseQuestionnaireModal}
-            changeType={tableauLogic.changeType}
-            animState={questionnaireModalAnim.animState}
-            onAddAnotherTableau={handleAddAnotherTableau}
-          />
-        )}
-
-        {/* Étape 2 : Aperçu du devis au format A4 */}
-        {step === 2 && (
-          <ModalQuote 
-            formData={formData} 
-            onBackToStep1={() => {
-              setFormData(prev => ({ ...prev, quoteMode: undefined }));
-              setStep(1);
-            }} 
-            devisItems={devisItems}
-          />
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 }
 

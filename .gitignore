@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Base SQLite locale (données prod = volume Railway, ne pas versionner)
+backend/data/database.db
+
 .env
 .env.local
 .env.*.local

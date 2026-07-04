@@ -64,15 +64,13 @@ class PrixCalculs {
   // ==================== COEFFICIENTS D'INSTALLATION ====================
   
   static getInstallationCoefficient(serviceType, installationType) {
-    // Suppression de la logique appareillage car cette catégorie n'existe plus
-    
     const coefficients = {
-      'saignee_encastre': 2.50,
-      'saillie_moulure': 2.0,
-      'cloison_creuse': 1.50,
-      'alimentation_existante': 1.0
+      saignee_encastre: 2.50,
+      saillie_moulure: 2.0,
+      alimentation_existante: 1.0,
+      wifi: 1.0
     };
-    
+
     return coefficients[installationType] || 1.0;
   }
 

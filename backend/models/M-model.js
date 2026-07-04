@@ -79,7 +79,7 @@ class MaterielModel {
     const prix = typeof prix_ht === 'number' ? prix_ht : Number(prix_ht) || 0;
     
     // Validation de la couleur
-    const validColors = ['gris', 'vert', 'orange', 'rouge', 'violet', 'bleu_fonce', 'bleu_moyen', 'bleu_clair', 'bleu_marine'];
+    const validColors = ['gris', 'vert', 'orange', 'rouge', 'violet', 'bleu_fonce', 'bleu_moyen', 'bleu_marine'];
     const finalCouleur = couleur && validColors.includes(couleur) ? couleur : 'gris';
 
     return new Promise((resolve, reject) => {
@@ -176,7 +176,7 @@ class MaterielModel {
           }
           if (data.couleur !== undefined) {
             // Validation de la couleur
-            const validColors = ['gris', 'vert', 'orange', 'rouge', 'violet', 'bleu_fonce', 'bleu_moyen', 'bleu_clair', 'bleu_marine'];
+            const validColors = ['gris', 'vert', 'orange', 'rouge', 'violet', 'bleu_fonce', 'bleu_moyen', 'bleu_marine'];
             const couleur = validColors.includes(data.couleur) ? data.couleur : 'gris';
             updates.push('couleur = ?');
             values.push(couleur);
