@@ -113,12 +113,12 @@ html, body {
 }
 
 .text-gradient-qtb {
-  background: linear-gradient(45deg, #06b6d4, #ffffff, #06b6d4);
-  background-size: 400% 400%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradientShift 10s ease-in-out infinite;
+  color: #eceaea;
+}
+
+.text-swiper-title {
+  color: #fafafa;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 10px rgba(0, 0, 0, 0.85)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.75)) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
 }
 
 @keyframes heroLogoIn {
@@ -177,6 +177,7 @@ html, body {
 
 @media (prefers-reduced-motion: reduce) {
   .text-gradient-qtb,
+  .text-swiper-title,
   .hero-logo-enter,
   .hero-text-enter,
   .hero-electric-glow,
